@@ -163,15 +163,19 @@ export class AdminServiceController {
 
   @Public()
   @Get('pricing/calculate')
-  @ApiOperation({ summary: 'Calculate pricing between two landmarks (Public / Internal)' })
+  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks (Public / Internal)' })
   async calculatePrice(
-    @Query('fromLandmarkId') fromLandmarkId: string,
-    @Query('toLandmarkId') toLandmarkId: string,
+    @Query('fromZoneId') fromZoneId?: string,
+    @Query('toZoneId') toZoneId?: string,
+    @Query('fromLandmarkId') fromLandmarkId?: string,
+    @Query('toLandmarkId') toLandmarkId?: string,
   ) {
-    if (!fromLandmarkId || !toLandmarkId) {
-      throw new BadRequestException('fromLandmarkId and toLandmarkId are required query parameters');
-    }
-    return this.adminService.calculateDeliveryPrice(fromLandmarkId, toLandmarkId);
+    return this.adminService.calculateDeliveryPrice({
+      fromZoneId,
+      toZoneId,
+      fromLandmarkId,
+      toLandmarkId,
+    });
   }
 
   @Get('dashboard')

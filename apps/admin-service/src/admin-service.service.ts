@@ -368,46 +368,73 @@ export class AdminServiceService {
   }
 
   // ==========================================
-  // PRICING CALCULATION LOGIC (USED BY ORDER SERVICE)
+  // PRICING CALCULATION LOGIC (USED BY ORDER SERVICE & PUBLIC API)
   // ==========================================
-  async calculateDeliveryPrice(fromLandmarkId: string, toLandmarkId: string) {
-    const pickupLandmark = await this.prisma.landmark.findUnique({
-      where: { id: fromLandmarkId },
-      include: { zone: true },
-    });
-    if (!pickupLandmark) {
-      throw new NotFoundException(`Pickup landmark ${fromLandmarkId} not found`);
-    }
+  async calculateDeliveryPrice(query: {
+    fromZoneId?: string;
+    toZoneId?: string;
+    fromLandmarkId?: string;
+    toLandmarkId?: string;
+  }) {
+    let pickupZoneId = query.fromZoneId;
+    let destinationZoneId = query.toZoneId;
+    const fromLandmarkId = query.fromLandmarkId;
+    const toLandmarkId = query.toLandmarkId;
 
-    const destinationLandmark = await this.prisma.landmark.findUnique({
-      where: { id: toLandmarkId },
-      include: { zone: true },
-    });
-    if (!destinationLandmark) {
-      throw new NotFoundException(`Destination landmark ${toLandmarkId} not found`);
-    }
-
-    const pickupZoneId = pickupLandmark.zoneId;
-    const destinationZoneId = destinationLandmark.zoneId;
-
-    // 1. Same-zone delivery
-    if (pickupZoneId === destinationZoneId) {
-      const zone = pickupLandmark.zone;
-      if (!zone) {
-        throw new NotFoundException(`Pickup zone not found`);
+    if (fromLandmarkId && toLandmarkId) {
+      const pickupLandmark = await this.prisma.landmark.findUnique({
+        where: { id: fromLandmarkId },
+        include: { zone: true },
+      });
+      if (!pickupLandmark) {
+        throw new NotFoundException(`Pickup landmark ${fromLandmarkId} not found`);
       }
-      const price = Number(zone.basePrice);
+
+      const destinationLandmark = await this.prisma.landmark.findUnique({
+        where: { id: toLandmarkId },
+        include: { zone: true },
+      });
+      if (!destinationLandmark) {
+        throw new NotFoundException(`Destination landmark ${toLandmarkId} not found`);
+      }
+
+      pickupZoneId = pickupLandmark.zoneId;
+      destinationZoneId = destinationLandmark.zoneId;
+    } else if (!pickupZoneId || !destinationZoneId) {
+      throw new BadRequestException(
+        'You must provide either (fromZoneId & toZoneId) OR (fromLandmarkId & toLandmarkId)',
+      );
+    }
+
+    const [fromZone, toZone] = await Promise.all([
+      this.prisma.zone.findUnique({ where: { id: pickupZoneId } }),
+      this.prisma.zone.findUnique({ where: { id: destinationZoneId } }),
+    ]);
+
+    if (!fromZone) {
+      throw new NotFoundException(`Origin zone ${pickupZoneId} not found`);
+    }
+    if (!toZone) {
+      throw new NotFoundException(`Destination zone ${destinationZoneId} not found`);
+    }
+
+    // 1. Same-zone delivery -> returns zone basePrice
+    if (pickupZoneId === destinationZoneId) {
+      const price = Number(fromZone.basePrice);
       return {
-        fromLandmarkId,
-        toLandmarkId,
+        ...(fromLandmarkId && { fromLandmarkId }),
+        ...(toLandmarkId && { toLandmarkId }),
         fromZoneId: pickupZoneId,
         toZoneId: destinationZoneId,
+        fromZoneName: fromZone.name,
+        toZoneName: toZone.name,
         price,
         amount: price,
+        type: 'SAME_ZONE',
       };
     }
 
-    // 2. Zone-to-Zone delivery lookup
+    // 2. Zone-to-Zone delivery lookup in PricingMatrix
     const matrix = await this.prisma.pricingMatrix.findFirst({
       where: {
         fromZoneId: pickupZoneId,
@@ -417,17 +444,22 @@ export class AdminServiceService {
     });
 
     if (!matrix) {
-      throw new BadRequestException(`Delivery route between these zones has not been configured`);
+      throw new BadRequestException(
+        `Delivery route between zone "${fromZone.name}" and zone "${toZone.name}" has not been configured`,
+      );
     }
 
     const price = Number(matrix.price);
     return {
-      fromLandmarkId,
-      toLandmarkId,
+      ...(fromLandmarkId && { fromLandmarkId }),
+      ...(toLandmarkId && { toLandmarkId }),
       fromZoneId: pickupZoneId,
       toZoneId: destinationZoneId,
+      fromZoneName: fromZone.name,
+      toZoneName: toZone.name,
       price,
       amount: price,
+      type: 'ZONE_TO_ZONE',
     };
   }
 

@@ -863,42 +863,64 @@ curl -X GET "http://localhost:3000/admin/users/usr_abc123" \
 
 ---
 
-#### 3.6 Calculate Delivery Price (Public)
+#### 3.6 Calculate Delivery Price (Public API)
 * **HTTP Method:** `GET`
 * **Route:** `/admin/pricing/calculate`
 * **Privilege Required:** Public — no authentication required
 
-##### Logic
-1. **Same zone**: returns the zone's `basePrice`
-2. **Different zones**: looks up the `PricingMatrix`; returns `400` if no rule is configured
+##### Calculation Logic
+1. **Same zone** (`fromZoneId === toZoneId`) → returns origin zone's `basePrice`.
+2. **Cross zone** (`fromZoneId !== toZoneId`) → looks up active `PricingMatrix` rule for `fromZoneId → toZoneId`. Returns `400` if no active rule exists.
+3. You can pass **either** (`fromZoneId` & `toZoneId`) **OR** (`fromLandmarkId` & `toLandmarkId`).
 
 ##### Query Parameters
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `fromLandmarkId` | string (UUID) | Yes | Pickup landmark |
-| `toLandmarkId` | string (UUID) | Yes | Drop-off landmark |
+| `fromZoneId` | string (UUID) | Optional | Origin zone ID |
+| `toZoneId` | string (UUID) | Optional | Destination zone ID |
+| `fromLandmarkId` | string (UUID) | Optional | Pickup landmark ID |
+| `toLandmarkId` | string (UUID) | Optional | Drop-off landmark ID |
 
-##### Success Response — Same Zone (200 OK)
+> ⚠️ **Note:** You must provide **either** (`fromZoneId` and `toZoneId`) **or** (`fromLandmarkId` and `toLandmarkId`).
+
+##### Success Response — By Zone IDs (200 OK)
 ```json
 {
-  "fromLandmarkId": "lm_uuid_001",
-  "toLandmarkId": "lm_uuid_002",
   "fromZoneId": "c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d",
-  "toZoneId": "c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d",
-  "price": 500,
-  "amount": 500
+  "toZoneId": "4adcca41-7d8d-481a-b8cf-b7162a35c9d4",
+  "fromZoneName": "zuba",
+  "toZoneName": "kubwa",
+  "price": 1200,
+  "amount": 1200,
+  "type": "ZONE_TO_ZONE"
 }
 ```
 
-##### Success Response — Cross-Zone (200 OK)
+##### Success Response — By Landmark IDs (200 OK)
 ```json
 {
   "fromLandmarkId": "lm_uuid_001",
   "toLandmarkId": "lm_uuid_003",
   "fromZoneId": "c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d",
   "toZoneId": "4adcca41-7d8d-481a-b8cf-b7162a35c9d4",
-  "price": 1500,
-  "amount": 1500
+  "fromZoneName": "zuba",
+  "toZoneName": "kubwa",
+  "price": 1200,
+  "amount": 1200,
+  "type": "ZONE_TO_ZONE"
+}
+```
+
+##### Success Response — Same Zone Delivery (200 OK)
+```json
+{
+  "fromZoneId": "c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d",
+  "toZoneId": "c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d",
+  "fromZoneName": "zuba",
+  "toZoneName": "zuba",
+  "price": 500,
+  "amount": 500,
+  "type": "SAME_ZONE"
 }
 ```
 
@@ -906,8 +928,9 @@ curl -X GET "http://localhost:3000/admin/users/usr_abc123" \
 ```json
 {
   "statusCode": 400,
-  "message": "Delivery route between these zones has not been configured"
+  "message": "Delivery route between zone \"zuba\" and zone \"kubwa\" has not been configured"
 }
+```
 ```
 
 ---

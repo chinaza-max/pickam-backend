@@ -592,12 +592,16 @@ export class GatewayController {
   @ApiTags('Admin Operations')
   @Public()
   @Get('admin/pricing/calculate')
-  @ApiOperation({ summary: 'Calculate pricing between landmarks' })
+  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks' })
   async calculatePrice(
-    @Query('fromLandmarkId') fromLandmarkId: string,
-    @Query('toLandmarkId') toLandmarkId: string,
+    @Query('fromZoneId') fromZoneId?: string,
+    @Query('toZoneId') toZoneId?: string,
+    @Query('fromLandmarkId') fromLandmarkId?: string,
+    @Query('toLandmarkId') toLandmarkId?: string,
   ) {
     return this.forward('get', '/admin/pricing/calculate', null, {
+      fromZoneId,
+      toZoneId,
       fromLandmarkId,
       toLandmarkId,
     });
