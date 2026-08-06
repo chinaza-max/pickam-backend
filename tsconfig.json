@@ -1,0 +1,101 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "libs/auth": [
+        "libs/auth/src"
+      ],
+      "libs/auth/*": [
+        "libs/auth/src/*"
+      ],
+      "libs/common": [
+        "libs/common/src"
+      ],
+      "libs/common/*": [
+        "libs/common/src/*"
+      ],
+      "libs/config": [
+        "libs/config/src"
+      ],
+      "libs/config/*": [
+        "libs/config/src/*"
+      ],
+      "libs/constants": [
+        "libs/constants/src"
+      ],
+      "libs/constants/*": [
+        "libs/constants/src/*"
+      ],
+      "libs/decorators": [
+        "libs/decorators/src"
+      ],
+      "libs/decorators/*": [
+        "libs/decorators/src/*"
+      ],
+      "libs/dto": [
+        "libs/dto/src"
+      ],
+      "libs/dto/*": [
+        "libs/dto/src/*"
+      ],
+      "libs/filters": [
+        "libs/filters/src"
+      ],
+      "libs/filters/*": [
+        "libs/filters/src/*"
+      ],
+      "libs/guards": [
+        "libs/guards/src"
+      ],
+      "libs/guards/*": [
+        "libs/guards/src/*"
+      ],
+      "libs/interceptors": [
+        "libs/interceptors/src"
+      ],
+      "libs/interceptors/*": [
+        "libs/interceptors/src/*"
+      ],
+      "libs/interfaces": [
+        "libs/interfaces/src"
+      ],
+      "libs/interfaces/*": [
+        "libs/interfaces/src/*"
+      ],
+      "libs/logger": [
+        "libs/logger/src"
+      ],
+      "libs/logger/*": [
+        "libs/logger/src/*"
+      ],
+      "libs/prisma": [
+        "libs/prisma/src"
+      ],
+      "libs/prisma/*": [
+        "libs/prisma/src/*"
+      ],
+      "libs/utils": [
+        "libs/utils/src"
+      ],
+      "libs/utils/*": [
+        "libs/utils/src/*"
+      ]
+    }
+  }
+}

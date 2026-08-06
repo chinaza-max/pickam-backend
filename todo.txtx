@@ -1,0 +1,131 @@
+# Zone-Based Pricing System (No Distance or Coordinate Calculation)
+
+Remove all coordinate-based and distance-based pricing logic from the delivery system.
+
+The delivery pricing model should be based entirely on predefined zones and fixed prices, which reflects how most dispatch services operate in Southeast Nigeria.
+
+## Updated Pricing Model
+
+### 1. Zones
+
+A **Zone** represents a geographical area (for example: New Haven, Independence Layout, GRA, Abakpa, Trans-Ekulu, etc.).
+
+Each zone should contain:
+
+* Zone ID
+* Zone Name
+* Base operating price (price for deliveries within the same zone)
+* Status (Active/Inactive)
+
+Coordinates (latitude/longitude) are **not required**.
+
+---
+
+### 2. Landmarks
+
+Every landmark belongs to exactly one zone.
+
+Example:
+
+* UNEC Gate → UNEC Zone
+* Roban Stores → Independence Layout Zone
+* Holy Ghost Park → Holy Ghost Zone
+
+The system only needs to know which zone a landmark belongs to.
+
+---
+
+### 3. Riders
+
+Dispatch riders should also be assigned to one or more operating zones.
+
+This allows the system to:
+
+* Know where riders operate.
+* Filter available jobs by zone.
+* Avoid unnecessary distance calculations.
+
+---
+
+### 4. Zone-to-Zone Pricing Matrix
+
+Instead of calculating delivery fees using coordinates or kilometers, create a pricing matrix between zones.
+
+Example:
+
+| From Zone           | To Zone             | Price  |
+| ------------------- | ------------------- | ------ |
+| UNEC                | UNEC                | ₦800   |
+| UNEC                | Independence Layout | ₦1,200 |
+| UNEC                | GRA                 | ₦1,500 |
+| Independence Layout | GRA                 | ₦900   |
+
+Each combination has a predefined fixed price set by the admin.
+
+---
+
+### 5. Price Calculation Logic
+
+When a customer creates a delivery request:
+
+1. Determine the pickup landmark.
+2. Retrieve the pickup landmark's zone.
+3. Determine the destination landmark.
+4. Retrieve the destination landmark's zone.
+5. If both landmarks belong to the same zone:
+
+   * Charge the zone's base operating price.
+6. If they belong to different zones:
+
+   * Look up the Zone-to-Zone Pricing Matrix.
+   * Return the predefined fixed price.
+7. If no pricing rule exists between the two zones:
+
+   * Return an error indicating that the route has not been configured.
+
+---
+
+### 6. No Coordinate or Distance Calculations
+
+The system should **not**:
+
+* Store latitude or longitude.
+* Calculate kilometers.
+* Use the Haversine formula.
+* Use Google Maps Distance Matrix.
+* Estimate travel distance.
+* Estimate travel time.
+
+Pricing is determined solely by predefined business rules.
+
+---
+
+### 7. Admin Responsibilities
+
+The Admin Panel should allow administrators to:
+
+* Create zones.
+* Update zones.
+* Activate or deactivate zones.
+* Assign landmarks to zones.
+* Assign riders to operating zones.
+* Configure zone-to-zone pricing.
+* Update pricing at any time without changing application code.
+
+---
+
+## Benefits
+
+This pricing model closely matches how dispatch businesses in Southeast Nigeria operate.
+
+Benefits include:
+
+* Simpler implementation.
+* Faster pricing lookups.
+* No dependency on GPS or mapping services.
+* Lower infrastructure costs.
+* Predictable pricing for customers.
+* Easy for dispatch operators to manage.
+* Easy to scale as new zones are added.
+
+The delivery fee is determined entirely by the relationship between the pickup zone and the destination zone, making pricing consistent, efficient, and easy to maintain.

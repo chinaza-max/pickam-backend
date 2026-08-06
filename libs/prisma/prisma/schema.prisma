@@ -1,0 +1,232 @@
+datasource db {
+  provider = "postgresql"
+  schemas  = ["user_schema", "wallet_schema", "order_schema", "notification_schema", "admin_schema"]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+// ==========================================
+// USER SERVICE SCHEMA
+// ==========================================
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String?
+  role           String          // "CUSTOMER", "RIDER", "ADMIN"
+  status         String          @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+  isVerified     Boolean         @default(false)
+  lastLoginAt    DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  profile        Profile?
+  socialAccounts SocialAccount[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@schema("user_schema")
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  phoneNumber String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("user_schema")
+}
+
+model RiderProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  vehicleType  String
+  vehiclePlate String
+  licenseNo    String
+  status       String   // "ONLINE", "OFFLINE", "DELIVERING"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@schema("user_schema")
+}
+
+model SocialAccount {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String   // "GOOGLE", "APPLE"
+  providerId String   @unique // Hashed provider ID
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([provider, providerId])
+  @@schema("user_schema")
+}
+
+// ==========================================
+// WALLET SERVICE SCHEMA
+// ==========================================
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Decimal  @default(0.00) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("wallet_schema")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String   // "DEBIT", "CREDIT"
+  status      String   // "PENDING", "SUCCESS", "FAILED"
+  reference   String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("wallet_schema")
+}
+
+model VirtualAccount {
+  id            String   @id @default(uuid())
+  walletId      String   @unique
+  bankName      String
+  accountName   String
+  accountNumber String   @unique
+  provider      String   // "SAVEHAVEN"
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@schema("wallet_schema")
+}
+
+// ==========================================
+// ORDER SERVICE SCHEMA
+// ==========================================
+
+model Order {
+  id                 String    @id @default(uuid())
+  customerId         String
+  riderId            String?
+  pickupAddress      String
+  destinationAddress String
+  pickupZoneId       String
+  destinationZoneId  String
+  amount             Decimal   @db.Decimal(10, 2)
+  status             String    // "PENDING", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"
+  paymentStatus      String    // "PENDING", "PAID", "REFUNDED"
+  recipientName      String?
+  recipientPhone     String?
+  pickupNotes        String?
+  deliveryNotes      String?
+  expiresAt          DateTime?
+  deliveryProofUrl   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@schema("order_schema")
+}
+
+model OrderEvent {
+  id          String   @id @default(uuid())
+  orderId     String
+  status      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@schema("order_schema")
+}
+
+// ==========================================
+// NOTIFICATION SERVICE SCHEMA
+// ==========================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // "PUSH", "SMS", "EMAIL"
+  status    String   // "SENT", "FAILED"
+  createdAt DateTime @default(now())
+
+  @@schema("notification_schema")
+}
+
+// ==========================================
+// ADMIN SERVICE SCHEMA
+// ==========================================
+
+model State {
+  id        String   @id @default(uuid())
+  name      String   @unique           // e.g. "Lagos", "Enugu"
+  code      String   @unique           // e.g. "LA", "EN"
+  status    String   @default("ACTIVE") // "ACTIVE", "INACTIVE"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  zones     Zone[]
+
+  @@schema("admin_schema")
+}
+
+model Zone {
+  id        String   @id @default(uuid())
+  name      String
+  stateId   String?
+  state     State?   @relation(fields: [stateId], references: [id], onDelete: SetNull)
+  basePrice Decimal  @default(0.00) @db.Decimal(10, 2)
+  status    String   // "ACTIVE", "INACTIVE"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  landmarks Landmark[]
+
+  @@unique([stateId, name])
+  @@schema("admin_schema")
+}
+
+model Landmark {
+  id        String   @id @default(uuid())
+  name      String
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("admin_schema")
+}
+
+model PricingMatrix {
+  id             String   @id @default(uuid())
+  fromZoneId     String
+  toZoneId       String
+  price          Decimal  @db.Decimal(10, 2)
+  status         String   // "ACTIVE", "INACTIVE"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@schema("admin_schema")
+}
+
+model RiderZone {
+  id        String   @id @default(uuid())
+  riderId   String
+  zoneId    String
+  createdAt DateTime @default(now())
+
+  @@unique([riderId, zoneId])
+  @@schema("user_schema")
+}

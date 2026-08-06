@@ -1,0 +1,1954 @@
+{
+  "info": {
+    "_postman_id": "pickam-backend-mvp-collection",
+    "name": "PickAm Backend — MVP",
+    "description": "Complete API collection for the PickAm delivery platform backend.\n\n**Services:**\n- API Gateway: http://localhost:3000\n- User Service: http://localhost:3001\n- Wallet Service: http://localhost:3002\n- Order Service: http://localhost:3003\n- Notification Service: http://localhost:3004\n- Admin Service: http://localhost:3005\n\n**SafeHaven Sandbox:** https://api.sandbox.safehavenmfb.com\n\n**Auth:** All protected routes require `Authorization: Bearer {{accessToken}}` header.\nRun the Login request first — the test script will auto-set `accessToken`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl",       "value": "http://localhost:3000",                     "type": "string" },
+    { "key": "userServiceUrl",   "value": "http://localhost:3001",                     "type": "string" },
+    { "key": "walletServiceUrl", "value": "http://localhost:3002",                     "type": "string" },
+    { "key": "orderServiceUrl",  "value": "http://localhost:3003",                     "type": "string" },
+    { "key": "notifServiceUrl",  "value": "http://localhost:3004",                     "type": "string" },
+    { "key": "adminServiceUrl",  "value": "http://localhost:3005",                     "type": "string" },
+    { "key": "safeHavenUrl",     "value": "https://api.sandbox.safehavenmfb.com",      "type": "string" },
+    { "key": "accessToken",      "value": "",                                          "type": "string" },
+    { "key": "safeHavenToken",   "value": "",                                          "type": "string" },
+    { "key": "userId",           "value": "",                                          "type": "string" },
+    { "key": "orderId",          "value": "",                                          "type": "string" },
+    { "key": "zoneId",           "value": "",                                          "type": "string" },
+    { "key": "stateId",          "value": "",                                          "type": "string" },
+    { "key": "landmarkId",       "value": "",                                          "type": "string" },
+    { "key": "virtualAccountId", "value": "",                                          "type": "string" },
+    { "key": "safeHavenClientId","value": "YOUR_SAFEHAVEN_CLIENT_ID",                 "type": "string" },
+    { "key": "safeHavenAssertion","value": "YOUR_SAFEHAVEN_CLIENT_ASSERTION",          "type": "string" },
+    { "key": "safeHavenAssertionType","value": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer","type": "string" },
+    { "key": "safeHavenRefreshToken","value": "",                                      "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "🔐 Auth — User Service",
+      "description": "Authentication and registration endpoints. All routed through Gateway on port 3000.",
+      "item": [
+        {
+          "name": "Register Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('userId', body.data.id);",
+                  "    console.log('userId set:', body.data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/auth/register", "host": ["{{gatewayUrl}}"], "path": ["auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"phoneNumber\": \"+2348012345678\",\n  \"role\": \"CUSTOMER\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — Customer Registered",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"clxyz123abc\",\n    \"email\": \"john.doe@example.com\",\n    \"role\": \"CUSTOMER\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Register Rider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/auth/register", "host": ["{{gatewayUrl}}"], "path": ["auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Emeka\",\n  \"lastName\": \"Okafor\",\n  \"email\": \"emeka.rider@example.com\",\n  \"password\": \"RiderPass456!\",\n  \"phoneNumber\": \"+2348098765432\",\n  \"role\": \"RIDER\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('accessToken', body.data.token);",
+                  "    console.log('accessToken saved.');",
+                  "  }",
+                  "  if (body.data && body.data.user && body.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/auth/login", "host": ["{{gatewayUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Login Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"user\": {\n      \"id\": \"clxyz123abc\",\n      \"email\": \"john.doe@example.com\",\n      \"role\": \"CUSTOMER\"\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('accessToken', body.data.token);",
+                  "    console.log('Admin accessToken saved.');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/auth/login", "host": ["{{gatewayUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@pickam.com\",\n  \"password\": \"AdminPass789!\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Social Login (Google / Apple)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.token) {",
+                  "    pm.collectionVariables.set('accessToken', body.data.token);",
+                  "    console.log('accessToken saved from social login.');",
+                  "  }",
+                  "  if (body.data && body.data.user && body.data.user.id) {",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/auth/social-login", "host": ["{{gatewayUrl}}"], "path": ["auth","social-login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"GOOGLE\",\n  \"providerId\": \"google-unique-id-12345\",\n  \"email\": \"social.user@example.com\",\n  \"firstName\": \"Social\",\n  \"lastName\": \"User\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\",\n  \"role\": \"CUSTOMER\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "👤 Profiles — User Service",
+      "description": "Profile management for customers and riders.",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/profiles/me", "host": ["{{gatewayUrl}}"], "path": ["profiles","me"] }
+          },
+          "response": [
+            {
+              "name": "200 — Profile",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"clxyz123abc\",\n    \"email\": \"john.doe@example.com\",\n    \"role\": \"CUSTOMER\",\n    \"profile\": {\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"phoneNumber\": \"+2348012345678\",\n      \"profilePicture\": null\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/profiles/me", "host": ["{{gatewayUrl}}"], "path": ["profiles","me"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jonathan\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"+2348099887766\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Update Rider Vehicle Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/riders/profile", "host": ["{{gatewayUrl}}"], "path": ["riders","profile"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"BIKE\",\n  \"vehiclePlate\": \"LAG-123-XY\",\n  \"status\": \"AVAILABLE\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Link Social Account (Google / Apple)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/profiles/link-social", "host": ["{{gatewayUrl}}"], "path": ["profiles","link-social"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"APPLE\",\n  \"providerId\": \"apple-unique-id-998877\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Add Password (Set Password for Social Registration)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/profiles/add-password", "host": ["{{gatewayUrl}}"], "path": ["profiles","add-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/profiles/change-password", "host": ["{{gatewayUrl}}"], "path": ["profiles","change-password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"SecurePass123!\",\n  \"newPassword\": \"BrandNewSecurePass456!\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Get User by ID (Internal)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/users/{{userId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["users","{{userId}}"]
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Get All Riders (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/riders", "host": ["{{gatewayUrl}}"], "path": ["riders"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "💰 Wallet — Wallet Service",
+      "description": "Wallet creation, balance enquiry, transaction history, and the SafeHaven deposit webhook.",
+      "item": [
+        {
+          "name": "Create Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.virtualAcc && body.data.virtualAcc.id) {",
+                  "    pm.collectionVariables.set('virtualAccountId', body.data.virtualAcc.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/wallets", "host": ["{{gatewayUrl}}"], "path": ["wallets"] },
+            "body": { "mode": "raw", "raw": "" }
+          },
+          "response": [
+            {
+              "name": "201 — Wallet Created with Virtual Account",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"wallet\": {\n      \"id\": \"wlt_abc123\",\n      \"userId\": \"clxyz123abc\",\n      \"balance\": 0\n    },\n    \"virtualAcc\": {\n      \"id\": \"va_xyz456\",\n      \"bankName\": \"SafeHaven MFB\",\n      \"accountName\": \"John Doe\",\n      \"accountNumber\": \"9012345678\",\n      \"provider\": \"SAFEHAVEN\"\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Get Balance",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/wallets/me/balance", "host": ["{{gatewayUrl}}"], "path": ["wallets","me","balance"] }
+          },
+          "response": [
+            {
+              "name": "200 — Balance Response",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"userId\": \"clxyz123abc\",\n    \"balance\": 5000.00,\n    \"virtualAccount\": {\n      \"bankName\": \"SafeHaven MFB\",\n      \"accountName\": \"John Doe\",\n      \"accountNumber\": \"9012345678\"\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Generate Dynamic Virtual Account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/wallets/me/virtual-account", "host": ["{{gatewayUrl}}"], "path": ["wallets","me","virtual-account"] }
+          },
+          "response": [
+            {
+              "name": "201 — Fresh Virtual Account Generated",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"va_xyz456\",\n    \"bankName\": \"SafeHaven MFB\",\n    \"accountName\": \"John Doe\",\n    \"accountNumber\": \"9012345678\",\n    \"provider\": \"SAFEHAVEN\",\n    \"expiresAt\": \"2026-08-05T23:45:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Get Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/wallets/me/transactions", "host": ["{{gatewayUrl}}"], "path": ["wallets","me","transactions"] }
+          },
+          "response": [
+            {
+              "name": "200 — Transaction List",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"tx_001\",\n      \"amount\": 2500.00,\n      \"type\": \"DEBIT\",\n      \"status\": \"SUCCESS\",\n      \"reference\": \"order_ref_abc\",\n      \"description\": \"Debit for order: order_ref_abc\",\n      \"createdAt\": \"2026-07-05T00:00:00.000Z\"\n    },\n    {\n      \"id\": \"tx_002\",\n      \"amount\": 5000.00,\n      \"type\": \"CREDIT\",\n      \"status\": \"SUCCESS\",\n      \"reference\": \"deposit_ref_xyz\",\n      \"description\": \"Virtual Account Transfer Deposit\",\n      \"createdAt\": \"2026-07-04T22:00:00.000Z\"\n    }\n  ],\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Deduct Units (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/wallets/deduct", "host": ["{{gatewayUrl}}"], "path": ["wallets","deduct"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"amount\": 1500,\n  \"reference\": \"order_ref_abc\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "Refund Units (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/wallets/refund", "host": ["{{gatewayUrl}}"], "path": ["wallets","refund"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"amount\": 1500,\n  \"reference\": \"refund_order_ref_abc\"\n}"
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "SafeHaven Deposit Webhook",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{gatewayUrl}}/wallets/webhook/safehaven", "host": ["{{gatewayUrl}}"], "path": ["wallets","webhook","safehaven"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"transfer.success\",\n  \"data\": {\n    \"accountNumber\": \"9012345678\",\n    \"amount\": 5000,\n    \"reference\": \"SH-WH-REF-001\",\n    \"narration\": \"Account funding\",\n    \"transactionDate\": \"2026-07-05T00:00:00.000Z\"\n  }\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Wallet Credited",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"success\",\n    \"message\": \"Wallet credited successfully\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "📦 Orders — Order Service",
+      "description": "Full order lifecycle: create, assign rider, status updates, cancellation (with rules), order events timeline, and expiry. Delivery proof field is future-ready.",
+      "item": [
+        {
+          "name": "Create Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('orderId', body.data.id);",
+                  "    console.log('orderId set:', body.data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/orders", "host": ["{{gatewayUrl}}"], "path": ["orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickupLandmarkId\": \"lm_isale_eko_001\",\n  \"destinationLandmarkId\": \"lm_lekki_phase1_002\",\n  \"pickupAddress\": \"32 Broad Street, Lagos Island\",\n  \"destinationAddress\": \"14 Admiralty Way, Lekki Phase 1\",\n  \"recipientName\": \"Amaka Johnson\",\n  \"recipientPhone\": \"+2348012345678\",\n  \"pickupNotes\": \"Call when you arrive. Ask for the security guard.\",\n  \"deliveryNotes\": \"Leave at the gate. Do not give to anyone else.\",\n  \"expiresInMinutes\": 30\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — Order Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"customerId\": \"clxyz123abc\",\n    \"pickupAddress\": \"32 Broad Street, Lagos Island\",\n    \"destinationAddress\": \"14 Admiralty Way, Lekki Phase 1\",\n    \"recipientName\": \"Amaka Johnson\",\n    \"recipientPhone\": \"+2348012345678\",\n    \"pickupNotes\": \"Call when you arrive. Ask for the security guard.\",\n    \"deliveryNotes\": \"Leave at the gate. Do not give to anyone else.\",\n    \"amount\": 2500.00,\n    \"status\": \"PENDING\",\n    \"paymentStatus\": \"PAID\",\n    \"expiresAt\": \"2026-07-05T01:30:00.000Z\",\n    \"deliveryProofUrl\": null,\n    \"createdAt\": \"2026-07-05T01:00:00.000Z\"\n  },\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 — Insufficient Wallet Balance",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"Insufficient units. Required: 2500, Wallet Balance: 1000\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Assign Rider to Order (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}/assign-rider",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}","assign-rider"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"rider_user_id_here\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Rider Assigned",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"riderId\": \"rider_user_id_here\",\n    \"status\": \"ASSIGNED\"\n  },\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 — Order Not in PENDING State",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"Rider can only be assigned to pending orders\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Order Status — PICKED_UP (Rider)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}","status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PICKED_UP\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Status Updated to PICKED_UP",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"status\": \"PICKED_UP\",\n    \"updatedAt\": \"2026-07-05T01:05:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Mark Order as Delivered (Rider)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}/status",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}","status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Order Delivered",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"status\": \"DELIVERED\",\n    \"deliveryProofUrl\": null,\n    \"updatedAt\": \"2026-07-05T01:25:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cancel Order",
+          "description": "⚠️ Cancellation Rules:\n- Only orders in PENDING or ASSIGNED status can be cancelled.\n- Orders in PICKED_UP or DELIVERED status CANNOT be cancelled.\n- A full wallet refund is automatically processed on successful cancellation.\n- The assigned rider (if any) is notified automatically.",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}/cancel",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}","cancel"]
+            },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "response": [
+            {
+              "name": "200 — Order Cancelled + Wallet Refunded",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"status\": \"CANCELLED\",\n    \"paymentStatus\": \"REFUNDED\"\n  },\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 — Cannot Cancel (Already PICKED_UP)",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"Cannot cancel order at this stage: current status is PICKED_UP\"\n}"
+            },
+            {
+              "name": "403 — Forbidden (Not Your Order)",
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"success\": false,\n  \"error\": \"You do not own this order\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Order History (Paginated)",
+          "description": "Returns paginated orders for the current user. Admins see all orders. Riders see their own.\n\n**Query Parameters:**\n- `page` — Page number (default: 1)\n- `limit` — Results per page (default: 20, max: 100)\n- `search` — Search by order ID, recipient name/phone, or address\n- `status` — Filter: PENDING | ASSIGNED | PICKED_UP | DELIVERED | CANCELLED\n- `paymentStatus` — Filter: PAID | REFUNDED\n- `sort` — Sort field (default: createdAt)\n- `order` — ASC | DESC (default: desc)\n- `startDate` — Date range start (ISO 8601)\n- `endDate` — Date range end (ISO 8601)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/history?page=1&limit=20&status=DELIVERED&sort=createdAt&order=desc",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","history"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "status", "value": "DELIVERED", "description": "PENDING|ASSIGNED|PICKED_UP|DELIVERED|CANCELLED" },
+                { "key": "sort",   "value": "createdAt" },
+                { "key": "order",  "value": "desc" },
+                { "key": "search", "value": "", "disabled": true, "description": "Search by order ID, recipient name/phone" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate",   "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Order History",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"ord_1720137600000_4521\",\n      \"status\": \"DELIVERED\",\n      \"paymentStatus\": \"PAID\",\n      \"amount\": 2500.00,\n      \"recipientName\": \"Amaka Johnson\",\n      \"recipientPhone\": \"+2348012345678\",\n      \"createdAt\": \"2026-07-05T01:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 1,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "🏍️ Get Available Orders (Riders)",
+          "description": "Returns paginated list of PENDING orders that have not been accepted by any rider. **Riders only.**\n\nRiders can filter by pickup zone and search by address. Only non-expired orders are shown.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/available?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","available"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "zoneId", "value": "", "disabled": true, "description": "Filter by pickup zone ID" },
+                { "key": "search", "value": "", "disabled": true, "description": "Search by pickup/destination address" },
+                { "key": "sort",   "value": "createdAt", "disabled": true },
+                { "key": "order",  "value": "desc", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Available Orders",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"ord_1720137600000_4521\",\n      \"pickupAddress\": \"32 Broad Street, Lagos Island\",\n      \"destinationAddress\": \"14 Admiralty Way, Lekki Phase 1\",\n      \"pickupZoneId\": \"zone_001\",\n      \"destinationZoneId\": \"zone_002\",\n      \"amount\": 2500.00,\n      \"recipientName\": \"Amaka Johnson\",\n      \"pickupNotes\": \"Call when you arrive.\",\n      \"deliveryNotes\": \"Leave at the gate.\",\n      \"expiresAt\": \"2026-07-05T02:00:00.000Z\",\n      \"createdAt\": \"2026-07-05T01:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 5,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "🏍️ Accept Order (Rider Self-Assign)",
+          "description": "A rider accepts a PENDING order and becomes the assigned rider. Uses a database transaction to prevent race conditions (two riders accepting the same order simultaneously).\n\n**Riders only.** No request body needed — the rider's identity is taken from the auth token.\n\n**Error cases:**\n- 404: Order not found\n- 400: Order already accepted by another rider\n- 400: Order has expired",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}/accept",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}","accept"]
+            },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "response": [
+            {
+              "name": "200 — Order Accepted by Rider",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"customerId\": \"cust_abc123\",\n    \"riderId\": \"rider_xyz789\",\n    \"status\": \"ASSIGNED\",\n    \"paymentStatus\": \"PAID\",\n    \"amount\": 2500.00,\n    \"pickupAddress\": \"32 Broad Street, Lagos Island\",\n    \"destinationAddress\": \"14 Admiralty Way, Lekki Phase 1\",\n    \"updatedAt\": \"2026-07-05T01:02:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 — Order Already Taken",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": \"This order is no longer available. It may have been accepted by another rider.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Order Details + Timeline / Events Log",
+          "description": "Returns the full order record including the complete events timeline showing every status transition with timestamps.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/orders/{{orderId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["orders","{{orderId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Order with Events Timeline",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"ord_1720137600000_4521\",\n    \"customerId\": \"clxyz123abc\",\n    \"riderId\": \"rider_user_id_here\",\n    \"status\": \"DELIVERED\",\n    \"paymentStatus\": \"PAID\",\n    \"amount\": 2500.00,\n    \"pickupAddress\": \"32 Broad Street, Lagos Island\",\n    \"destinationAddress\": \"14 Admiralty Way, Lekki Phase 1\",\n    \"recipientName\": \"Amaka Johnson\",\n    \"recipientPhone\": \"+2348012345678\",\n    \"pickupNotes\": \"Call when you arrive.\",\n    \"deliveryNotes\": \"Leave at the gate.\",\n    \"expiresAt\": \"2026-07-05T02:00:00.000Z\",\n    \"deliveryProofUrl\": null,\n    \"createdAt\": \"2026-07-05T01:00:00.000Z\",\n    \"events\": [\n      { \"status\": \"PENDING\",   \"description\": \"Order placed successfully. Searching for nearby riders.\",  \"createdAt\": \"2026-07-05T01:00:00.000Z\" },\n      { \"status\": \"ASSIGNED\",  \"description\": \"Rider rider_user_id_here assigned to your order.\",         \"createdAt\": \"2026-07-05T01:02:00.000Z\" },\n      { \"status\": \"PICKED_UP\", \"description\": \"Rider has picked up your package and is on the way.\",    \"createdAt\": \"2026-07-05T01:10:00.000Z\" },\n      { \"status\": \"DELIVERED\", \"description\": \"Your package has been successfully delivered.\",           \"createdAt\": \"2026-07-05T01:25:00.000Z\" }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "🔔 Notifications — Notification Service",
+      "description": "Notification logging and retrieval. Supports pagination, type filtering, and date range.",
+      "item": [
+        {
+          "name": "Send Notification (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/notifications", "host": ["{{gatewayUrl}}"], "path": ["notifications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"title\": \"Order Assigned\",\n  \"message\": \"Your order has been assigned to a rider.\",\n  \"type\": \"ORDER_UPDATE\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — Notification Logged",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"notif_xyz\",\n    \"userId\": \"clxyz123abc\",\n    \"title\": \"Order Assigned\",\n    \"message\": \"Your order has been assigned to a rider.\",\n    \"type\": \"ORDER_UPDATE\",\n    \"status\": \"SENT\",\n    \"createdAt\": \"2026-07-05T00:02:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get My Notifications (Paginated)",
+          "description": "Returns paginated notification history for the current user.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/notifications/me?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["notifications","me"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "type",  "value": "", "disabled": true, "description": "PUSH | SMS | EMAIL" },
+                { "key": "status", "value": "", "disabled": true, "description": "SENT | FAILED" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate",   "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Notifications",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"notif_001\",\n      \"title\": \"Order Assigned\",\n      \"message\": \"Your order has been assigned to a rider.\",\n      \"type\": \"PUSH\",\n      \"status\": \"SENT\",\n      \"createdAt\": \"2026-07-05T01:02:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 1,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "👥 Admin — User Management",
+      "description": "Complete admin user management: list, view, update role/privileges, suspend, activate, soft-delete, and view user wallet/orders.\n\n**Admin Privileges Required:**\n- `SUPER_ADMIN` (Full Access)\n- `USER_MANAGEMENT` (User query, update, suspend, activate)\n- `SUPPORT` (User view & order history)\n- `FINANCE` (User wallet inspection)\n\n**Pagination Pattern (all list endpoints):**\n```\nGET /admin/users?page=1&limit=20&search=john&role=CUSTOMER&status=ACTIVE&verified=true&sort=createdAt&order=desc\n```\n\n**Searchable Fields:** Full Name, Email, Phone Number, User ID\n**Filter Fields:** role, status, verified, startDate, endDate",
+      "item": [
+        {
+          "name": "Get All Users (Paginated, Searchable, Filterable)",
+          "description": "Fetch all users with full pagination, search, filter, and sort support.\n\n**Example URLs:**\n- `GET /admin/users?page=1&limit=20`\n- `GET /admin/users?search=john`\n- `GET /admin/users?role=CUSTOMER`\n- `GET /admin/users?status=ACTIVE`\n- `GET /admin/users?role=RIDER&status=SUSPENDED`\n- `GET /admin/users?verified=true`\n- `GET /admin/users?sort=createdAt&order=desc`\n- `GET /admin/users?startDate=2026-07-01&endDate=2026-07-31`",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users?page=1&limit=20&sort=createdAt&order=desc",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "limit",     "value": "20" },
+                { "key": "sort",      "value": "createdAt" },
+                { "key": "order",     "value": "desc",     "description": "asc | desc" },
+                { "key": "search",    "value": "",         "disabled": true, "description": "Full name, email, phone, user ID" },
+                { "key": "role",      "value": "",         "disabled": true, "description": "CUSTOMER | RIDER | ADMIN" },
+                { "key": "status",    "value": "",         "disabled": true, "description": "ACTIVE | SUSPENDED" },
+                { "key": "verified",  "value": "",         "disabled": true, "description": "true | false" },
+                { "key": "startDate", "value": "",         "disabled": true },
+                { "key": "endDate",   "value": "",         "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Users List",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"usr_abc123\",\n      \"email\": \"john@example.com\",\n      \"role\": \"CUSTOMER\",\n      \"status\": \"ACTIVE\",\n      \"isVerified\": true,\n      \"lastLoginAt\": \"2026-07-05T01:00:00.000Z\",\n      \"createdAt\": \"2026-06-01T00:00:00.000Z\",\n      \"profile\": {\n        \"firstName\": \"John\",\n        \"lastName\": \"Doe\",\n        \"phoneNumber\": \"+2348012345678\",\n        \"avatarUrl\": null\n      },\n      \"socialAccounts\": []\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 356,\n    \"totalPages\": 18,\n    \"hasNext\": true,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Full User Details",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"usr_abc123\",\n    \"email\": \"john@example.com\",\n    \"role\": \"CUSTOMER\",\n    \"status\": \"ACTIVE\",\n    \"isVerified\": true,\n    \"lastLoginAt\": \"2026-07-05T01:00:00.000Z\",\n    \"createdAt\": \"2026-06-01T00:00:00.000Z\",\n    \"profile\": { \"firstName\": \"John\", \"lastName\": \"Doe\", \"phoneNumber\": \"+2348012345678\", \"avatarUrl\": null },\n    \"socialAccounts\": [{ \"provider\": \"GOOGLE\", \"createdAt\": \"2026-06-01T00:00:00.000Z\" }],\n    \"riderProfile\": null\n  }\n}"
+            },
+            {
+              "name": "404 — User Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{ \"success\": false, \"error\": \"User not found\" }"
+            }
+          ]
+        },
+        {
+          "name": "Update User (Role / Status / Profile)",
+          "description": "Admin can update a user's role, account status, verification flag, and profile information.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"RIDER\",\n  \"isVerified\": true,\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe Updated\",\n  \"phoneNumber\": \"+2348099887766\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 — User Updated",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"usr_abc123\",\n    \"email\": \"john@example.com\",\n    \"role\": \"RIDER\",\n    \"status\": \"ACTIVE\",\n    \"isVerified\": true,\n    \"profile\": { \"firstName\": \"John\", \"lastName\": \"Doe Updated\", \"phoneNumber\": \"+2348099887766\" }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Suspend User",
+          "description": "Suspends the user account. Suspended users cannot log in until reactivated.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}/suspend",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}","suspend"]
+            },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "response": [
+            {
+              "name": "200 — User Suspended",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": { \"id\": \"usr_abc123\", \"status\": \"SUSPENDED\" }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Activate User",
+          "description": "Re-activates a previously suspended user account.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}/activate",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}","activate"]
+            },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "response": [
+            {
+              "name": "200 — User Activated",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": { \"id\": \"usr_abc123\", \"status\": \"ACTIVE\" }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete User (Soft Delete)",
+          "description": "Soft-deletes the user account by setting `deletedAt` timestamp. The user will no longer appear in any list or be able to log in, but data is preserved.",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — User Soft-Deleted",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": { \"id\": \"usr_abc123\", \"deleted\": true }\n}"
+            }
+          ]
+        },
+        {
+          "name": "View User Wallet",
+          "description": "Admin view of a specific user's wallet balance and virtual account details.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}/wallet",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}","wallet"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — User Wallet Details",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"userId\": \"usr_abc123\",\n    \"balance\": 12500.00,\n    \"virtualAccount\": {\n      \"bankName\": \"SafeHaven MFB\",\n      \"accountName\": \"John Doe\",\n      \"accountNumber\": \"9012345678\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "View User Orders (Paginated)",
+          "description": "Admin view of a specific user's paginated order history.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/users/{{userId}}/orders?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","users","{{userId}}","orders"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — User Orders Paginated",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"ord_1720137600000_4521\",\n      \"status\": \"DELIVERED\",\n      \"amount\": 2500.00,\n      \"createdAt\": \"2026-07-05T01:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 1,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+
+
+    {
+      "name": "🛠️ Admin — Admin Service",
+      "description": "State management, zone management, landmark creation, pricing matrix, and analytics dashboard. All list endpoints support pagination.",
+      "item": [
+        {
+          "name": "Fetch All Nigerian States (Native Package)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/states/nigeria", "host": ["{{gatewayUrl}}"], "path": ["states","nigeria"] }
+          },
+          "response": [
+            {
+              "name": "200 — 36 States + FCT",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"name\": \"Lagos\",\n      \"code\": \"LA\",\n      \"fullName\": \"Lagos State\",\n      \"countryCode\": \"NG\",\n      \"latitude\": \"6.5244\",\n      \"longitude\": \"3.3792\"\n    },\n    {\n      \"name\": \"Enugu\",\n      \"code\": \"EN\",\n      \"fullName\": \"Enugu State\",\n      \"countryCode\": \"NG\",\n      \"latitude\": \"6.4584\",\n      \"longitude\": \"7.5464\"\n    }\n  ],\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Seed All Nigerian States (Bulk DB Seed)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/admin/states/seed-nigeria", "host": ["{{gatewayUrl}}"], "path": ["admin","states","seed-nigeria"] }
+          },
+          "response": [
+            {
+              "name": "201 — States Seeded",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Successfully seeded 37 Nigerian states\",\n    \"count\": 37\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create State",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('stateId', body.data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/states", "host": ["{{gatewayUrl}}"], "path": ["admin","states"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Enugu\",\n  \"code\": \"EN\",\n  \"status\": \"ACTIVE\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — State Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"state_001\",\n    \"name\": \"Enugu\",\n    \"code\": \"EN\",\n    \"status\": \"ACTIVE\",\n    \"createdAt\": \"2026-08-05T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "List States (Public / Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/states?page=1&limit=40", "host": ["{{gatewayUrl}}"], "path": ["states"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "40" }] }
+          },
+          "response": [
+            {
+              "name": "200 — List States",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"state_001\",\n      \"name\": \"Enugu\",\n      \"code\": \"EN\",\n      \"status\": \"ACTIVE\",\n      \"zones\": [\n        { \"id\": \"zone_001\", \"name\": \"New Haven\", \"status\": \"ACTIVE\" }\n      ]\n    }\n  ],\n  \"pagination\": { \"page\": 1, \"limit\": 40, \"total\": 1, \"totalPages\": 1, \"hasNext\": false, \"hasPrevious\": false }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Zone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('zoneId', body.data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/zones", "host": ["{{gatewayUrl}}"], "path": ["admin","zones"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Haven\",\n  \"basePrice\": 800\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — Zone Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"zone_001\",\n    \"name\": \"New Haven\",\n    \"basePrice\": 800,\n    \"status\": \"ACTIVE\",\n    \"createdAt\": \"2026-07-12T00:00:00.000Z\"\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Zone",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/zones/{{zoneId}}", "host": ["{{gatewayUrl}}"], "path": ["admin","zones","{{zoneId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Haven Updated\",\n  \"basePrice\": 900,\n  \"status\": \"ACTIVE\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Zones (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/zones?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","zones"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "search", "value": "", "disabled": true, "description": "Search by zone name" },
+                { "key": "status", "value": "", "disabled": true, "description": "ACTIVE | INACTIVE" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Zones",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [{ \"id\": \"zone_001\", \"name\": \"New Haven\", \"basePrice\": 800, \"status\": \"ACTIVE\" }],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 1, \"totalPages\": 1, \"hasNext\": false, \"hasPrevious\": false }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Landmark",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('landmarkId', body.data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/landmarks", "host": ["{{gatewayUrl}}"], "path": ["admin","landmarks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"UNEC Gate\",\n  \"zoneId\": \"{{zoneId}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Landmarks (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/landmarks?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","landmarks"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "search", "value": "", "disabled": true, "description": "Search by landmark name" },
+                { "key": "zoneId", "value": "", "disabled": true, "description": "Filter by zone ID" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Landmarks",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [{ \"id\": \"lm_001\", \"name\": \"UNEC Gate\", \"zoneId\": \"zone_001\" }],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 1, \"totalPages\": 1, \"hasNext\": false, \"hasPrevious\": false }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Pricing Matrix",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/pricing", "host": ["{{gatewayUrl}}"], "path": ["admin","pricing"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromZoneId\": \"zone_001\",\n  \"toZoneId\": \"zone_002\",\n  \"price\": 1200,\n  \"status\": \"ACTIVE\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Pricing Matrix",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/pricing/{{pricingMatrixId}}", "host": ["{{gatewayUrl}}"], "path": ["admin","pricing","{{pricingMatrixId}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromZoneId\": \"zone_001\",\n  \"toZoneId\": \"zone_002\",\n  \"price\": 1300,\n  \"status\": \"ACTIVE\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Pricing Matrices (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/pricing?page=1&limit=20&status=ACTIVE",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","pricing"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "status", "value": "ACTIVE", "description": "ACTIVE | INACTIVE" },
+                { "key": "zoneId", "value": "", "disabled": true, "description": "Filter by zone ID (as origin or destination)" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Pricing Matrices",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [{ \"id\": \"pm_001\", \"fromZoneId\": \"zone_001\", \"toZoneId\": \"zone_002\", \"price\": 1200, \"status\": \"ACTIVE\" }],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 1, \"totalPages\": 1, \"hasNext\": false, \"hasPrevious\": false }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Calculate Delivery Price",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/pricing/calculate?fromLandmarkId=lm_isale_eko_001&toLandmarkId=lm_lekki_phase1_002",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","pricing","calculate"],
+              "query": [
+                { "key": "fromLandmarkId", "value": "lm_isale_eko_001" },
+                { "key": "toLandmarkId",   "value": "lm_lekki_phase1_002" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Price Calculated",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"fromLandmarkId\": \"lm_isale_eko_001\",\n    \"toLandmarkId\": \"lm_lekki_phase1_002\",\n    \"fromZoneId\": \"zone_001\",\n    \"toZoneId\": \"zone_002\",\n    \"price\": 1200,\n    \"amount\": 1200\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/admin/dashboard", "host": ["{{gatewayUrl}}"], "path": ["admin","dashboard"] }
+          },
+          "response": [
+            {
+              "name": "200 — Dashboard Stats",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"activeZones\": 8,\n    \"activeLandmarks\": 64,\n    \"totalRegisteredUsers\": 142,\n    \"totalRegisteredRiders\": 28,\n    \"activeDeliveries\": 15,\n    \"completedDeliveries\": 843,\n    \"totalRevenueUnits\": 1452500\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard — Revenue Chart (Last 14 Days)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/dashboard/revenue-chart",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin", "dashboard", "revenue-chart"]
+            },
+            "description": "Returns daily revenue totals for the last 14 days (inclusive of today).\nOnly counts orders in DELIVERED status.\n\n**Auth:** Admin only — requires Bearer token.\n\n**Response shape:**\n```json\n{\n  \"period\": { \"from\": \"YYYY-MM-DD\", \"to\": \"YYYY-MM-DD\" },\n  \"totalRevenue\": <number — sum over 14 days>,\n  \"peakDay\": { \"date\": \"YYYY-MM-DD\", \"revenue\": <number> },\n  \"days\": [\n    { \"date\": \"YYYY-MM-DD\", \"revenue\": <number> },\n    ...\n  ]\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Revenue Chart",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"period\": { \"from\": \"2026-07-16\", \"to\": \"2026-07-29\" },\n    \"totalRevenue\": 48500,\n    \"peakDay\": { \"date\": \"2026-07-25\", \"revenue\": 7200 },\n    \"days\": [\n      { \"date\": \"2026-07-16\", \"revenue\": 0 },\n      { \"date\": \"2026-07-17\", \"revenue\": 1500 },\n      { \"date\": \"2026-07-18\", \"revenue\": 3200 },\n      { \"date\": \"2026-07-19\", \"revenue\": 2800 },\n      { \"date\": \"2026-07-20\", \"revenue\": 0 },\n      { \"date\": \"2026-07-21\", \"revenue\": 4100 },\n      { \"date\": \"2026-07-22\", \"revenue\": 5600 },\n      { \"date\": \"2026-07-23\", \"revenue\": 3900 },\n      { \"date\": \"2026-07-24\", \"revenue\": 2200 },\n      { \"date\": \"2026-07-25\", \"revenue\": 7200 },\n      { \"date\": \"2026-07-26\", \"revenue\": 6000 },\n      { \"date\": \"2026-07-27\", \"revenue\": 4500 },\n      { \"date\": \"2026-07-28\", \"revenue\": 3500 },\n      { \"date\": \"2026-07-29\", \"revenue\": 4000 }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Admin Dashboard — Recent Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/dashboard/recent-orders",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin", "dashboard", "recent-orders"]
+            },
+            "description": "Returns the 10 most recent orders across the entire platform, enriched with basic customer info (name, email, phone).\n\n**Auth:** Admin only — requires Bearer token.\n\n**Response shape:**\n```json\n{\n  \"total\": <number>,\n  \"orders\": [\n    {\n      \"id\": \"ord_...\",\n      \"customerId\": \"...\",\n      \"riderId\": \"...\" | null,\n      \"pickupAddress\": \"...\",\n      \"destinationAddress\": \"...\",\n      \"amount\": <number>,\n      \"status\": \"PENDING | ASSIGNED | PICKED_UP | DELIVERED | CANCELLED\",\n      \"paymentStatus\": \"PAID | PENDING | REFUNDED\",\n      \"createdAt\": \"ISO8601\",\n      \"updatedAt\": \"ISO8601\",\n      \"customer\": {\n        \"id\": \"...\",\n        \"email\": \"...\",\n        \"firstName\": \"...\",\n        \"lastName\": \"...\",\n        \"phoneNumber\": \"...\"\n      }\n    }\n  ]\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Recent Orders",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"total\": 2,\n    \"orders\": [\n      {\n        \"id\": \"ord_1722290400_4821\",\n        \"customerId\": \"clxyz001abc\",\n        \"riderId\": \"clxyz002def\",\n        \"pickupAddress\": \"12 Marina Street, Lagos Island\",\n        \"destinationAddress\": \"5 Admiralty Way, Lekki Phase 1\",\n        \"amount\": 1500,\n        \"status\": \"DELIVERED\",\n        \"paymentStatus\": \"PAID\",\n        \"createdAt\": \"2026-07-29T18:40:00.000Z\",\n        \"updatedAt\": \"2026-07-29T19:10:00.000Z\",\n        \"customer\": {\n          \"id\": \"clxyz001abc\",\n          \"email\": \"john.doe@example.com\",\n          \"firstName\": \"John\",\n          \"lastName\": \"Doe\",\n          \"phoneNumber\": \"+2348012345678\"\n        }\n      },\n      {\n        \"id\": \"ord_1722288000_3317\",\n        \"customerId\": \"clxyz003ghi\",\n        \"riderId\": null,\n        \"pickupAddress\": \"8 Broad Street, Lagos Island\",\n        \"destinationAddress\": \"22 Ozumba Mbadiwe, Victoria Island\",\n        \"amount\": 1200,\n        \"status\": \"PENDING\",\n        \"paymentStatus\": \"PAID\",\n        \"createdAt\": \"2026-07-29T18:00:00.000Z\",\n        \"updatedAt\": \"2026-07-29T18:00:00.000Z\",\n        \"customer\": {\n          \"id\": \"clxyz003ghi\",\n          \"email\": \"amara.obi@example.com\",\n          \"firstName\": \"Amara\",\n          \"lastName\": \"Obi\",\n          \"phoneNumber\": \"+2348099887766\"\n        }\n      }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Assign Rider Operating Zones",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/admin/riders/:userId/zones", "host": ["{{gatewayUrl}}"], "path": ["admin","riders",":userId","zones"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneIds\": [\"{{zoneId}}\"]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Rider Operating Zones",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{gatewayUrl}}/admin/riders/:userId/zones", "host": ["{{gatewayUrl}}"], "path": ["admin","riders",":userId","zones"] }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "📋 Admin — Audit Logs",
+      "description": "System-wide audit log endpoints for admin. List all transactions, notifications, riders, and orders across all users.",
+      "item": [
+        {
+          "name": "List All Wallet Transactions (System Audit)",
+          "description": "Returns system-wide paginated wallet transactions for admin auditing.\n\nFilter by userId to target a specific user's transactions.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/wallets/transactions?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","wallets","transactions"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "limit",     "value": "20" },
+                { "key": "userId",    "value": "", "disabled": true, "description": "Filter by specific user" },
+                { "key": "type",      "value": "", "disabled": true, "description": "DEBIT | CREDIT" },
+                { "key": "status",    "value": "", "disabled": true, "description": "SUCCESS | PENDING | FAILED" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate",   "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Transactions",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"tx_001\",\n      \"walletId\": \"wlt_abc123\",\n      \"amount\": 2500.00,\n      \"type\": \"DEBIT\",\n      \"status\": \"SUCCESS\",\n      \"reference\": \"ord_1720137600000_4521\",\n      \"description\": \"Debit for order: ord_1720137600000_4521\",\n      \"createdAt\": \"2026-07-05T01:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 250,\n    \"totalPages\": 13,\n    \"hasNext\": true,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Notifications (System Audit)",
+          "description": "Returns system-wide paginated notification log for admin monitoring.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/notifications?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","notifications"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "userId", "value": "", "disabled": true },
+                { "key": "type",   "value": "", "disabled": true, "description": "PUSH | SMS | EMAIL" },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Notifications",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [{ \"id\": \"notif_001\", \"userId\": \"usr_abc\", \"title\": \"Order Placed\", \"type\": \"PUSH\", \"status\": \"SENT\", \"createdAt\": \"2026-07-05T01:00:00.000Z\" }],\n  \"pagination\": { \"page\": 1, \"limit\": 20, \"total\": 100, \"totalPages\": 5, \"hasNext\": true, \"hasPrevious\": false }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Riders (Paginated)",
+          "description": "Returns paginated list of all riders with their vehicle details and status.",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/admin/riders?page=1&limit=20",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["admin","riders"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "status", "value": "", "disabled": true, "description": "ONLINE | OFFLINE | DELIVERING" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 — Paginated Riders",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"userId\": \"usr_rider_001\",\n      \"firstName\": \"Emeka\",\n      \"lastName\": \"Okafor\",\n      \"email\": \"emeka@example.com\",\n      \"vehicleType\": \"BIKE\",\n      \"vehiclePlate\": \"LSD-123-AB\",\n      \"status\": \"ONLINE\",\n      \"isVerified\": true,\n      \"accountStatus\": \"ACTIVE\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 28,\n    \"totalPages\": 2,\n    \"hasNext\": true,\n    \"hasPrevious\": false\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "🏦 SafeHaven API (Direct)",
+      "description": "Direct calls to the SafeHaven MFB API (sandbox). These bypass the PickAm gateway and call SafeHaven directly. Requires SafeHaven OAuth token.\n\nSandbox Base URL: https://api.sandbox.safehavenmfb.com\nProduction Base URL: https://api.safehavenmfb.com",
+      "item": [
+
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Get Token (client_credentials)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "  const body = pm.response.json();",
+                      "  if (body.access_token) {",
+                      "    pm.collectionVariables.set('safeHavenToken', body.access_token);",
+                      "    console.log('safeHavenToken set.');",
+                      "  }",
+                      "  if (body.refresh_token) {",
+                      "    pm.collectionVariables.set('safeHavenRefreshToken', body.refresh_token);",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+                "url": { "raw": "{{safeHavenUrl}}/oauth2/token", "host": ["{{safeHavenUrl}}"], "path": ["oauth2","token"] },
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    { "key": "grant_type",            "value": "client_credentials" },
+                    { "key": "client_assertion_type", "value": "{{safeHavenAssertionType}}" },
+                    { "key": "client_id",             "value": "{{safeHavenClientId}}" },
+                    { "key": "client_assertion",      "value": "{{safeHavenAssertion}}" }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Token Issued",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 2400\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Refresh Access Token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "  const body = pm.response.json();",
+                      "  if (body.access_token) {",
+                      "    pm.collectionVariables.set('safeHavenToken', body.access_token);",
+                      "    console.log('safeHavenToken refreshed.');",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+                "url": { "raw": "{{safeHavenUrl}}/oauth2/token", "host": ["{{safeHavenUrl}}"], "path": ["oauth2","token"] },
+                "body": {
+                  "mode": "urlencoded",
+                  "urlencoded": [
+                    { "key": "grant_type",            "value": "refresh_token" },
+                    { "key": "client_assertion_type", "value": "{{safeHavenAssertionType}}" },
+                    { "key": "client_id",             "value": "{{safeHavenClientId}}" },
+                    { "key": "client_assertion",      "value": "{{safeHavenAssertion}}" },
+                    { "key": "refresh_token",         "value": "{{safeHavenRefreshToken}}" }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Virtual Accounts",
+          "item": [
+            {
+              "name": "Create Virtual Account",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "  const body = pm.response.json();",
+                      "  const id = body?.data?._id || body?.data?.id;",
+                      "  if (id) pm.collectionVariables.set('virtualAccountId', id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization",  "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",       "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",   "value": "application/json" },
+                  { "key": "Accept",         "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/virtual-accounts", "host": ["{{safeHavenUrl}}"], "path": ["virtual-accounts"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"validFor\": 900,\n  \"settlementAccount\": {\n    \"bankCode\": \"090286\",\n    \"accountNumber\": \"0123456789\"\n  },\n  \"amountControl\": \"Fixed\",\n  \"amount\": 5000,\n  \"callbackUrl\": \"https://your-domain.com/api/wallets/webhook/safehaven\",\n  \"externalReference\": \"PICKAM-USER-001\"\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "201 — Virtual Account Created",
+                  "status": "Created",
+                  "code": 201,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"_id\": \"64abc123ef456\",\n    \"accountNumber\": \"9012345678\",\n    \"accountName\": \"PICKAM/John Doe\",\n    \"bankName\": \"SafeHaven MFB\",\n    \"bankCode\": \"090286\",\n    \"expiresAt\": \"2026-07-05T00:15:00.000Z\",\n    \"externalReference\": \"PICKAM-USER-001\"\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Get Virtual Account",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/virtual-accounts/{{virtualAccountId}}",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["virtual-accounts","{{virtualAccountId}}"]
+                }
+              },
+              "response": []
+            },
+
+            {
+              "name": "Update Virtual Account",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/virtual-accounts/{{virtualAccountId}}",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["virtual-accounts","{{virtualAccountId}}"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"validFor\": 1800,\n  \"amount\": 10000,\n  \"amountControl\": \"Fixed\"\n}"
+                }
+              },
+              "response": []
+            },
+
+            {
+              "name": "Delete Virtual Account",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/virtual-accounts/{{virtualAccountId}}",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["virtual-accounts","{{virtualAccountId}}"]
+                }
+              },
+              "response": []
+            },
+
+            {
+              "name": "Get Virtual Account Transfer Status",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/virtual-accounts/status", "host": ["{{safeHavenUrl}}"], "path": ["virtual-accounts","status"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sessionId\": \"SH-SESSION-ABCDE12345\"\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Transfer Status",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"sessionId\": \"SH-SESSION-ABCDE12345\",\n    \"status\": \"Successful\",\n    \"amount\": 5000,\n    \"accountNumber\": \"9012345678\",\n    \"narration\": \"Account funding\"\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Get Virtual Account Transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/virtual-accounts/{{virtualAccountId}}/transaction",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["virtual-accounts","{{virtualAccountId}}","transaction"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Identity Verification",
+          "item": [
+            {
+              "name": "Initiate NIN Verification",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/identity/v2", "host": ["{{safeHavenUrl}}"], "path": ["identity","v2"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"NIN\",\n  \"number\": \"12345678901\",\n  \"debitAccountNumber\": \"0123456789\",\n  \"otp\": \"123456\",\n  \"verifierId\": \"default\",\n  \"provider\": \"creditRegistry\",\n  \"async\": true\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Verification Initiated",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"identityId\": \"id_abc123\",\n    \"status\": \"PENDING\",\n    \"type\": \"NIN\"\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Validate Verification OTP",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/identity/v2/validate", "host": ["{{safeHavenUrl}}"], "path": ["identity","v2","validate"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"identityId\": \"id_abc123\",\n  \"type\": \"NIN\",\n  \"otp\": \"654321\"\n}"
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Transfers",
+          "item": [
+            {
+              "name": "Get Bank List",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/transfers/banks", "host": ["{{safeHavenUrl}}"], "path": ["transfers","banks"] }
+              },
+              "response": [
+                {
+                  "name": "200 — Bank List",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": [\n    { \"bankCode\": \"000014\", \"bankName\": \"Access Bank\" },\n    { \"bankCode\": \"000010\", \"bankName\": \"Ecobank Nigeria\" },\n    { \"bankCode\": \"000013\", \"bankName\": \"GTBank\" },\n    { \"bankCode\": \"090286\", \"bankName\": \"SafeHaven MFB\" }\n  ]\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Name Enquiry",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/transfers/name-enquiry", "host": ["{{safeHavenUrl}}"], "path": ["transfers","name-enquiry"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bankCode\": \"000014\",\n  \"accountNumber\": \"0123456789\"\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Account Name",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"accountName\": \"John Doe\",\n    \"accountNumber\": \"0123456789\",\n    \"bankCode\": \"000014\",\n    \"nameEnquiryReference\": \"NE-REF-ABC123\"\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Initiate Transfer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/transfers", "host": ["{{safeHavenUrl}}"], "path": ["transfers"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nameEnquiryReference\": \"NE-REF-ABC123\",\n  \"debitAccountNumber\": \"0123456789\",\n  \"beneficiaryBankCode\": \"000014\",\n  \"beneficiaryAccountNumber\": \"9876543210\",\n  \"amount\": 2500,\n  \"saveBeneficiary\": false,\n  \"narration\": \"Rider payout — PickAm order ord_abc123\",\n  \"paymentReference\": \"PICKAM-PAY-001\"\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Transfer Initiated",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"sessionId\": \"SH-TX-SESSION-XYZ\",\n    \"status\": \"Successful\",\n    \"transactionReference\": \"PICKAM-PAY-001\",\n    \"amount\": 2500,\n    \"narration\": \"Rider payout — PickAm order ord_abc123\"\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "Get Transfer Status",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Content-Type",  "value": "application/json" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": { "raw": "{{safeHavenUrl}}/transfers/status", "host": ["{{safeHavenUrl}}"], "path": ["transfers","status"] },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sessionId\": \"SH-TX-SESSION-XYZ\"\n}"
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Transfer Status",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"sessionId\": \"SH-TX-SESSION-XYZ\",\n    \"status\": \"Successful\",\n    \"amount\": 2500\n  }\n}"
+                }
+              ]
+            },
+
+            {
+              "name": "List Transfers",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/transfers?page=1&limit=20",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["transfers"],
+                  "query": [
+                    { "key": "page",  "value": "1" },
+                    { "key": "limit", "value": "20" }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Accounts",
+          "item": [
+            {
+              "name": "Get Account Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{safeHavenToken}}" },
+                  { "key": "ClientID",      "value": "{{safeHavenClientId}}" },
+                  { "key": "Accept",        "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{safeHavenUrl}}/accounts/0123456789",
+                  "host": ["{{safeHavenUrl}}"],
+                  "path": ["accounts","0123456789"]
+                }
+              },
+              "response": [
+                {
+                  "name": "200 — Account Details",
+                  "status": "OK",
+                  "code": 200,
+                  "body": "{\n  \"statusCode\": 200,\n  \"data\": {\n    \"accountNumber\": \"0123456789\",\n    \"accountName\": \"PickAm Settlement Account\",\n    \"bankName\": \"SafeHaven MFB\",\n    \"balance\": 125000.00,\n    \"currency\": \"NGN\",\n    \"status\": \"Active\"\n  }\n}"
+                }
+              ]
+            }
+          ]
+        }
+
+      ]
+    }
+
+  ]
+}
