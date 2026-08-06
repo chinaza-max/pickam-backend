@@ -434,14 +434,25 @@ export class AdminServiceService {
       };
     }
 
-    // 2. Zone-to-Zone delivery lookup in PricingMatrix
-    const matrix = await this.prisma.pricingMatrix.findFirst({
+    // 2. Zone-to-Zone delivery lookup in PricingMatrix (checks direct route, then reverse route as fallback)
+    let matrix = await this.prisma.pricingMatrix.findFirst({
       where: {
         fromZoneId: pickupZoneId,
         toZoneId: destinationZoneId,
         status: 'ACTIVE',
       },
     });
+
+    if (!matrix) {
+      // Fallback: check reverse route (toZoneId -> fromZoneId)
+      matrix = await this.prisma.pricingMatrix.findFirst({
+        where: {
+          fromZoneId: destinationZoneId,
+          toZoneId: pickupZoneId,
+          status: 'ACTIVE',
+        },
+      });
+    }
 
     if (!matrix) {
       throw new BadRequestException(
