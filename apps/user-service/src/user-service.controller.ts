@@ -14,6 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateRiderProfileDto } from './dto/rider-profile.dto';
+import { SendOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/otp.dto';
 import { AuthGuard, RolesGuard } from 'libs/guards';
 import { CurrentUser, Public, Roles } from 'libs/decorators';
 import { UserRole } from 'libs/constants';
@@ -46,6 +47,35 @@ export class UserServiceController {
   async socialLogin(@Body() dto: SocialLoginDto) {
     return this.userService.socialLogin(dto);
   }
+
+  @Public()
+  @Post('auth/send-otp')
+  @ApiOperation({ summary: 'Send a 6-digit OTP to an email address for verification or password reset' })
+  async sendOtp(@Body() dto: SendOtpDto) {
+    return this.userService.sendOtp(dto);
+  }
+
+  @Public()
+  @Post('auth/verify-otp')
+  @ApiOperation({ summary: 'Verify a 6-digit OTP code sent to an email address' })
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.userService.verifyOtp(dto);
+  }
+
+  @Public()
+  @Post("auth/forgot-password")
+  @ApiOperation({ summary: "Request password reset OTP" })
+  async forgotPassword(@Body() dto: SendOtpDto) {
+    return this.userService.sendOtp({ email: dto.email, purpose: "PASSWORD_RESET" });
+  }
+
+  @Public()
+  @Post("auth/reset-password")
+  @ApiOperation({ summary: "Reset password using verified OTP" })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.userService.resetPassword(dto);
+  }
+
 
   @Get('profiles/me')
   @UseGuards(AuthGuard)

@@ -27,7 +27,166 @@
     { "key": "safeHavenRefreshToken","value": "",                                      "type": "string" }
   ],
   "item": [
-
+    {
+      "name": "📍 Location & Geocoding — User Service",
+      "description": "User-facing location APIs for reverse geocoding coordinates (Nominatim), fetching delivery zones by state, and listing landmarks by zone.",
+      "item": [
+        {
+          "name": "Reverse Geocode Coordinates to State (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/state-by-coordinates?latitude=6.5244&longitude=3.3792",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "state-by-coordinates"],
+              "query": [
+                { "key": "latitude", "value": "6.5244" },
+                { "key": "longitude", "value": "3.3792" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — State Resolved (Lagos)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"coordinates\": {\n      \"latitude\": 6.5244,\n      \"longitude\": 3.3792\n    },\n    \"geocoded\": {\n      \"rawState\": \"Lagos State\",\n      \"cleanedStateName\": \"Lagos\",\n      \"isoCode\": \"NG-LA\",\n      \"stateCode\": \"LA\",\n      \"displayName\": \"Tizeti HQ Test Address, Eletu Odibo Street, Akoka, Shomolu, Lagos State, 102216, Nigeria\",\n      \"address\": {\n        \"amenity\": \"Tizeti HQ Test Address\",\n        \"road\": \"Eletu Odibo Street\",\n        \"residential\": \"Akoka\",\n        \"suburb\": \"Akoka\",\n        \"county\": \"Shomolu\",\n        \"state\": \"Lagos State\",\n        \"ISO3166-2-lvl4\": \"NG-LA\",\n        \"postcode\": \"102216\",\n        \"country\": \"Nigeria\",\n        \"country_code\": \"ng\"\n      }\n    },\n    \"matchedState\": {\n      \"id\": \"0c3c416a-14a9-4fa3-8dd6-b19f9464944b\",\n      \"name\": \"Lagos\",\n      \"code\": \"LA\",\n      \"status\": \"ACTIVE\",\n      \"activeZonesCount\": 0,\n      \"zones\": []\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reverse Geocode Coordinates to State (POST Body)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/state-by-coordinates",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "state-by-coordinates"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 6.4584,\n  \"longitude\": 7.5464\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — State Resolved (Enugu)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"coordinates\": {\n      \"latitude\": 6.4584,\n      \"longitude\": 7.5464\n    },\n    \"geocoded\": {\n      \"rawState\": \"Enugu State\",\n      \"cleanedStateName\": \"Enugu\",\n      \"isoCode\": \"NG-EN\",\n      \"stateCode\": \"EN\",\n      \"displayName\": \"Prince Cornelius Nnaji Street, Enugu, New Haven Layout Extension, Enugu, Enugu North, Enugu State, 400102, Nigeria\",\n      \"address\": {\n        \"road\": \"Prince Cornelius Nnaji Street\",\n        \"residential\": \"Enugu\",\n        \"suburb\": \"New Haven Layout Extension\",\n        \"city\": \"Enugu\",\n        \"county\": \"Enugu North\",\n        \"state\": \"Enugu State\",\n        \"ISO3166-2-lvl4\": \"NG-EN\",\n        \"postcode\": \"400102\",\n        \"country\": \"Nigeria\",\n        \"country_code\": \"ng\"\n      }\n    },\n    \"matchedState\": {\n      \"id\": \"49bd6b96-294d-41f6-950d-a0e40d2ec2f6\",\n      \"name\": \"Enugu\",\n      \"code\": \"EN\",\n      \"status\": \"ACTIVE\",\n      \"activeZonesCount\": 0,\n      \"zones\": []\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Zones in State (GET Query)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/zones-by-state?state=Kaduna",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "zones-by-state"],
+              "query": [
+                { "key": "state", "value": "Kaduna" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — Zones Returned (Kaduna)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"state\": {\n      \"id\": \"db05d24f-0f06-4bb2-9cbd-f1d7f3d792aa\",\n      \"name\": \"Kaduna\",\n      \"code\": \"KD\",\n      \"status\": \"ACTIVE\"\n    },\n    \"totalZones\": 1,\n    \"zones\": [\n      {\n        \"id\": \"028798e0-4dd5-4890-8f97-61111625e375\",\n        \"name\": \"gwagwalada\",\n        \"stateId\": \"db05d24f-0f06-4bb2-9cbd-f1d7f3d792aa\",\n        \"basePrice\": 3000,\n        \"status\": \"active\",\n        \"landmarksCount\": 1,\n        \"createdAt\": \"2026-08-06T00:40:20.002Z\",\n        \"updatedAt\": \"2026-08-06T17:37:20.819Z\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Zones in State (POST Body)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/zones-by-state",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "zones-by-state"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"Abuja\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — Zones Returned (Abuja)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"state\": {\n      \"id\": \"c3e1b767-ea54-4ba1-8e12-138080f808ef\",\n      \"name\": \"Abuja Federal Capital Territory\",\n      \"code\": \"FC\",\n      \"status\": \"ACTIVE\"\n    },\n    \"totalZones\": 2,\n    \"zones\": [\n      {\n        \"id\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n        \"name\": \"kubwa\",\n        \"stateId\": \"c3e1b767-ea54-4ba1-8e12-138080f808ef\",\n        \"basePrice\": 1500,\n        \"status\": \"ACTIVE\",\n        \"landmarksCount\": 2,\n        \"createdAt\": \"2026-08-05T23:50:47.154Z\",\n        \"updatedAt\": \"2026-08-05T23:50:47.154Z\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Landmarks in Zone (GET Query)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/landmarks-by-zone?zone=kubwa",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "landmarks-by-zone"],
+              "query": [
+                { "key": "zone", "value": "kubwa" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — Landmarks Returned (kubwa)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"zone\": {\n      \"id\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n      \"name\": \"kubwa\",\n      \"basePrice\": 1500,\n      \"status\": \"ACTIVE\",\n      \"state\": {\n        \"id\": \"c3e1b767-ea54-4ba1-8e12-138080f808ef\",\n        \"name\": \"Abuja Federal Capital Territory\",\n        \"code\": \"FC\"\n      }\n    },\n    \"totalLandmarks\": 2,\n    \"landmarks\": [\n      {\n        \"id\": \"690cf7f3-053a-46f4-9163-055263999ebf\",\n        \"name\": \"firstbank\",\n        \"zoneId\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n        \"createdAt\": \"2026-08-06T00:04:43.116Z\",\n        \"updatedAt\": \"2026-08-06T00:04:43.116Z\"\n      },\n      {\n        \"id\": \"10038e5d-a6ab-4ce8-9980-a7bbd5e165d1\",\n        \"name\": \"kfc\",\n        \"zoneId\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n        \"createdAt\": \"2026-08-06T00:05:34.996Z\",\n        \"updatedAt\": \"2026-08-06T00:05:34.996Z\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Landmarks in Zone (POST Body)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{gatewayUrl}}/locations/landmarks-by-zone",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["locations", "landmarks-by-zone"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneId\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — Landmarks Returned (by zoneId)",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"zone\": {\n      \"id\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n      \"name\": \"kubwa\",\n      \"basePrice\": 1500,\n      \"status\": \"ACTIVE\",\n      \"state\": {\n        \"id\": \"c3e1b767-ea54-4ba1-8e12-138080f808ef\",\n        \"name\": \"Abuja Federal Capital Territory\",\n        \"code\": \"FC\"\n      }\n    },\n    \"totalLandmarks\": 2,\n    \"landmarks\": [\n      {\n        \"id\": \"690cf7f3-053a-46f4-9163-055263999ebf\",\n        \"name\": \"firstbank\",\n        \"zoneId\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n        \"createdAt\": \"2026-08-06T00:04:43.116Z\",\n        \"updatedAt\": \"2026-08-06T00:04:43.116Z\"\n      },\n      {\n        \"id\": \"10038e5d-a6ab-4ce8-9980-a7bbd5e165d1\",\n        \"name\": \"kfc\",\n        \"zoneId\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\",\n        \"createdAt\": \"2026-08-06T00:05:34.996Z\",\n        \"updatedAt\": \"2026-08-06T00:05:34.996Z\"\n      }\n    ]\n  },\n  \"error\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "🔐 Auth — User Service",
       "description": "Authentication and registration endpoints. All routed through Gateway on port 3000.",
@@ -383,10 +542,34 @@
           },
           "response": [
             {
-              "name": "201 — Fresh Virtual Account Generated",
+              "name": "201 — Fresh Virtual Account Generated (Auto-Funds in 15s)",
               "status": "Created",
               "code": 201,
-              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"va_xyz456\",\n    \"bankName\": \"SafeHaven MFB\",\n    \"accountName\": \"John Doe\",\n    \"accountNumber\": \"9012345678\",\n    \"provider\": \"SAFEHAVEN\",\n    \"expiresAt\": \"2026-08-05T23:45:00.000Z\"\n  },\n  \"error\": null\n}"
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"virtualAccount\": {\n      \"id\": \"va_xyz456\",\n      \"bankName\": \"SafeHaven MFB (Sandbox)\",\n      \"accountName\": \"John Doe\",\n      \"accountNumber\": \"9994670615\",\n      \"provider\": \"SAFEHAVEN_MOCK\",\n      \"expiresAt\": \"2026-08-22T19:30:00.000Z\"\n    },\n    \"autoFunding\": {\n      \"enabled\": true,\n      \"amount\": 10000,\n      \"delaySeconds\": 15,\n      \"message\": \"Test Mode: Wallet will be automatically credited with ₦10,000 in 15 seconds.\"\n    }\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
+
+        {
+          "name": "Test/Dev Fund Wallet (Custom Amount & Delay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/wallets/me/fund", "host": ["{{gatewayUrl}}"], "path": ["wallets","me","fund"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 15000,\n  \"delaySeconds\": 15\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "201 — Wallet Funding Initiated (15s Timer)",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"success\": true,\n    \"message\": \"Funding initiated! ₦15,000 will be credited to your wallet in 15 seconds.\",\n    \"amount\": 15000,\n    \"scheduledInSeconds\": 15,\n    \"virtualAccount\": {\n      \"id\": \"768df39c-b249-49f4-8e53-75bc39f19b60\",\n      \"bankName\": \"SafeHaven MFB (Sandbox)\",\n      \"accountName\": \"John Doe\",\n      \"accountNumber\": \"9994670615\",\n      \"provider\": \"SAFEHAVEN_MOCK\",\n      \"expiresAt\": \"2026-08-22T18:33:35.274Z\"\n    }\n  },\n  \"error\": null\n}"
             }
           ]
         },
@@ -1020,6 +1203,34 @@
       "name": "🛠️ Admin — Admin Service",
       "description": "State management, zone management, landmark creation, pricing matrix, and analytics dashboard. All list endpoints support pagination.",
       "item": [
+        {
+          "name": "Get All States (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/states?limit=40&page=1",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["states"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number" },
+                { "key": "limit", "value": "40", "description": "Items per page (40 = all states)" },
+                { "key": "search", "value": "", "description": "Filter by state name (optional)", "disabled": true },
+                { "key": "status", "value": "ACTIVE", "description": "Filter by status (optional)", "disabled": true }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — All States with Zones",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"c3e1b767-ea54-4ba1-8e12-138080f808ef\",\n      \"name\": \"Abuja Federal Capital Territory\",\n      \"code\": \"FC\",\n      \"status\": \"ACTIVE\",\n      \"createdAt\": \"2026-08-05T23:45:13.252Z\",\n      \"updatedAt\": \"2026-08-05T23:46:26.999Z\",\n      \"zones\": [\n        { \"id\": \"c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d\", \"name\": \"zuba\", \"basePrice\": \"1500\", \"status\": \"ACTIVE\" },\n        { \"id\": \"4adcca41-7d8d-481a-b8cf-b7162a35c9d4\", \"name\": \"kubwa\", \"basePrice\": \"1500\", \"status\": \"ACTIVE\" }\n      ]\n    },\n    {\n      \"id\": \"bd181c9a-7141-4d2f-9439-d1ebd87d606a\",\n      \"name\": \"Abia\",\n      \"code\": \"AB\",\n      \"status\": \"ACTIVE\",\n      \"createdAt\": \"2026-08-05T23:45:13.230Z\",\n      \"updatedAt\": \"2026-08-05T23:46:26.981Z\",\n      \"zones\": []\n    },\n    {\n      \"id\": \"0c3c416a-14a9-4fa3-8dd6-b19f9464944b\",\n      \"name\": \"Lagos\",\n      \"code\": \"LA\",\n      \"status\": \"ACTIVE\",\n      \"createdAt\": \"2026-08-05T23:45:13.260Z\",\n      \"updatedAt\": \"2026-08-05T23:46:27.010Z\",\n      \"zones\": []\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 40,\n    \"total\": 37,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrevious\": false\n  },\n  \"error\": null\n}"
+            }
+          ]
+        },
         {
           "name": "Fetch All Nigerian States (Native Package)",
           "request": {

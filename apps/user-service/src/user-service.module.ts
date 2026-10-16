@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { UserServiceController } from './user-service.controller';
 import { UserServiceService } from './user-service.service';
+import { EmailService } from './email.service';
 import { PrismaModule } from 'libs/prisma';
 import { AuthModule } from 'libs/auth';
 import { GuardsModule } from 'libs/guards';
@@ -16,6 +17,7 @@ import { ConfigModule } from 'libs/config';
     ConfigModule,
   ],
   controllers: [UserServiceController],
-  providers: [UserServiceService],
+  providers: [UserServiceService, EmailService],
 })
 export class UserServiceModule {}
+

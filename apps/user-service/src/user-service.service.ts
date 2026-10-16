@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  ForbiddenException,
   NotFoundException,
   BadRequestException,
   OnModuleInit,
@@ -18,7 +19,10 @@ import { UserRole, RiderStatus } from 'libs/constants';
 import { firstValueFrom } from 'rxjs';
 import { SocialLoginDto, LinkSocialDto, AddPasswordDto, ChangePasswordDto, AdminUpdateUserDto } from 'libs/dto';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { PaginationQueryDto, buildPaginatedResponse } from 'libs/common';
+import { EmailService } from './email.service';
+import { SendOtpDto, VerifyOtpDto, ResetPasswordDto } from './dto/otp.dto';
 
 @Injectable()
 export class UserServiceService implements OnModuleInit {
@@ -27,6 +31,7 @@ export class UserServiceService implements OnModuleInit {
     private auth: AuthService,
     private jwtService: JwtService,
     private httpService: HttpService,
+    private emailService: EmailService,
   ) {}
 
   async onModuleInit() {
@@ -135,11 +140,17 @@ export class UserServiceService implements OnModuleInit {
 
     const token = await this.generateToken(user.id, user.email, user.role);
 
+    // Auto-send email verification OTP (fire-and-forget so registration still completes)
+    this.sendOtp({ email: user.email, purpose: 'EMAIL_VERIFICATION' }).catch((err) =>
+      console.error(`[UserService] Failed to auto-send OTP for ${user.email}:`, err.message),
+    );
+
     return {
       user: {
         id: user.id,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
         firstName: user.profile?.firstName,
         lastName: user.profile?.lastName,
         phoneNumber: user.profile?.phoneNumber,
@@ -173,6 +184,19 @@ export class UserServiceService implements OnModuleInit {
       throw new UnauthorizedException('Invalid login credentials');
     }
 
+    // Block unverified accounts — resend OTP and tell the client to verify
+    if (!user.isVerified) {
+      // Resend OTP automatically so they can verify immediately
+      this.sendOtp({ email: user.email, purpose: 'EMAIL_VERIFICATION' }).catch((err) =>
+        console.error(`[UserService] Failed to resend OTP for ${user.email}:`, err.message),
+      );
+      throw new ForbiddenException({
+        message: 'Your email address is not verified. A new verification code has been sent to your email.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      });
+    }
+
     // Update last login timestamp
     await this.prisma.user.update({
       where: { id: user.id },
@@ -186,6 +210,7 @@ export class UserServiceService implements OnModuleInit {
         id: user.id,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
         firstName: user.profile?.firstName,
         lastName: user.profile?.lastName,
         phoneNumber: user.profile?.phoneNumber,
@@ -261,45 +286,100 @@ export class UserServiceService implements OnModuleInit {
 
   async findAllRiders(query: PaginationQueryDto) {
     const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 20;
+    const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    if (query.status) {
-      where.status = query.status.toUpperCase();
+    const rawStatus = (query.status || "").toLowerCase().trim();
+
+    const riderProfileWhere: any = {};
+    if (rawStatus === "online") {
+      riderProfileWhere.status = "ONLINE";
+    } else if (rawStatus === "offline") {
+      riderProfileWhere.status = "OFFLINE";
     }
 
-    const [riders, total] = await Promise.all([
+    const [riderProfiles, totalProfiles] = await Promise.all([
       this.prisma.riderProfile.findMany({
-        where,
+        where: riderProfileWhere,
         skip,
         take: limit,
+        orderBy: { createdAt: "desc" },
       }),
-      this.prisma.riderProfile.count({ where }),
+      this.prisma.riderProfile.count({ where: riderProfileWhere }),
     ]);
 
-    const result: any[] = [];
-    for (const rider of riders) {
-      const user = await this.prisma.user.findFirst({
-        where: { id: rider.userId, deletedAt: null },
-        include: { profile: true },
+    const userIds = riderProfiles.map((rp) => rp.userId);
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        deletedAt: null,
+      },
+      include: {
+        profile: true,
+      },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    let deliveryMap = new Map();
+    try {
+      const deliveryCounts = await this.prisma.order.groupBy({
+        by: ["riderId"],
+        where: {
+          riderId: { in: userIds },
+          status: "DELIVERED",
+        },
+        _count: { id: true },
       });
-      if (user) {
-        result.push({
-          userId: rider.userId,
-          firstName: user.profile?.firstName || '',
-          lastName: user.profile?.lastName || '',
-          email: user.email,
-          vehicleType: rider.vehicleType,
-          vehiclePlate: rider.vehiclePlate,
-          status: rider.status,
-          isVerified: user.isVerified,
-          accountStatus: user.status,
-        });
-      }
+      deliveryMap = new Map(deliveryCounts.map((dc) => [dc.riderId, dc._count.id]));
+    } catch {
+      /* ignore */
     }
 
-    return buildPaginatedResponse(result, total, page, limit);
+    const result: any[] = [];
+    for (const rp of riderProfiles) {
+      const user = userMap.get(rp.userId);
+      if (!user) continue;
+
+      const accountStatus = (user.status || "ACTIVE").toLowerCase() === "suspended" ? "suspended" : "active";
+
+      if (rawStatus === "active" && accountStatus !== "active") {
+        continue;
+      }
+      if (rawStatus === "suspended" && accountStatus !== "suspended") {
+        continue;
+      }
+
+      const fullName = [user.profile?.firstName, user.profile?.lastName].filter(Boolean).join(" ") || user.email;
+      const isOnline = String(rp.status || "").toUpperCase() === "ONLINE";
+      const isVerified = Boolean(user.isVerified);
+      const deliveries = deliveryMap.get(rp.userId) || 0;
+
+      result.push({
+        id: rp.userId,
+        userId: rp.userId,
+        name: fullName,
+        firstName: user.profile?.firstName || "",
+        lastName: user.profile?.lastName || "",
+        email: user.email,
+        phone: user.profile?.phoneNumber || "",
+        phoneNumber: user.profile?.phoneNumber || "",
+        vehicle: rp.vehicleType || "Motorcycle",
+        vehicleType: rp.vehicleType || "Motorcycle",
+        plateNumber: rp.vehiclePlate || "N/A",
+        vehiclePlate: rp.vehiclePlate || "N/A",
+        online: isOnline,
+        status: accountStatus,
+        availability: rp.status || "OFFLINE",
+        verified: isVerified,
+        isVerified: isVerified,
+        accountStatus: user.status || "ACTIVE",
+        rating: 5.0,
+        deliveries,
+      });
+    }
+
+    return buildPaginatedResponse(result, totalProfiles, page, limit);
   }
 
   async listUsers(query: PaginationQueryDto) {
@@ -819,6 +899,128 @@ export class UserServiceService implements OnModuleInit {
     });
 
     return zones;
+  }
+
+  async sendOtp(dto: SendOtpDto): Promise<{ message: string }> {
+    const { email, purpose = 'EMAIL_VERIFICATION' } = dto;
+
+    // Check if the user exists (optional check — only for EMAIL_VERIFICATION)
+    const user = await this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    // Invalidate any previous unused OTPs for this email/purpose
+    await this.prisma.otpRecord.updateMany({
+      where: { email, purpose, used: false },
+      data: { used: true },
+    });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.prisma.otpRecord.create({
+      data: { email, otpHash, purpose, expiresAt },
+    });
+
+    // Send email
+    await this.emailService.sendOtpEmail(email, otp, purpose);
+
+    return { message: `OTP sent to ${email}. It expires in 10 minutes.` };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string; verified: boolean }> {
+    const { email, otp, purpose = 'EMAIL_VERIFICATION' } = dto;
+
+    // Fetch the most recent unused, non-expired OTP for this email/purpose
+    const record = await this.prisma.otpRecord.findFirst({
+      where: {
+        email,
+        purpose,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!record) {
+      throw new BadRequestException('OTP is invalid or has expired. Please request a new one.');
+    }
+
+    const isMatch = await bcrypt.compare(otp, record.otpHash);
+    if (!isMatch) {
+      throw new BadRequestException('Incorrect OTP code. Please try again.');
+    }
+
+    // Mark OTP as used
+    await this.prisma.otpRecord.update({
+      where: { id: record.id },
+      data: { used: true },
+    });
+
+    // If purpose is EMAIL_VERIFICATION, mark user as verified
+    if (purpose === 'EMAIL_VERIFICATION') {
+      await this.prisma.user.updateMany({
+        where: { email, deletedAt: null },
+        data: { isVerified: true },
+      });
+    }
+
+    return { message: 'OTP verified successfully.', verified: true };
+  }
+
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string; success: boolean }> {
+    const { email, otp, newPassword } = dto;
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException("Password must be at least 6 characters long");
+    }
+
+    const record = await this.prisma.otpRecord.findFirst({
+      where: {
+        email,
+        purpose: "PASSWORD_RESET",
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!record) {
+      throw new BadRequestException("Password reset code is invalid or has expired. Please request a new one.");
+    }
+
+    const isMatch = await bcrypt.compare(otp, record.otpHash);
+    if (!isMatch) {
+      throw new BadRequestException("Incorrect verification code. Please check your email and try again.");
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+    if (!user) {
+      throw new NotFoundException("No account found with this email address");
+    }
+
+    const hashedPassword = await this.auth.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        isVerified: true,
+      },
+    });
+
+    await this.prisma.otpRecord.update({
+      where: { id: record.id },
+      data: { used: true },
+    });
+
+    return { message: "Password has been reset successfully. Please log in with your new password.", success: true };
   }
 
   private async generateToken(userId: string, email: string, role: string) {

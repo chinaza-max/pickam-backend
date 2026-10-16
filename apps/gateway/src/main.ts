@@ -18,10 +18,26 @@ async function bootstrap() {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // limit each IP to 100 requests per windowMs
+      max: process.env.RATE_LIMIT_MAX
+        ? Number(process.env.RATE_LIMIT_MAX)
+        : process.env.NODE_ENV === 'production'
+        ? 2000
+        : 10000, // Generous limit for development & multi-app testing
+      skip: (req) => {
+        // Skip rate-limiting in local development or for localhost/loopback
+        if (process.env.NODE_ENV !== 'production') {
+          return true;
+        }
+        // Never lock out admin routes
+        if (req.path.startsWith('/admin')) {
+          return true;
+        }
+        return false;
+      },
       message: {
         success: false,
         data: null,
+        message: 'Too many requests, please try again later.',
         error: {
           statusCode: 429,
           message: 'Too many requests, please try again later.',

@@ -28,7 +28,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         'success' in resContent &&
         'error' in resContent
       ) {
-        return response.status(status).json(resContent);
+        const forwarded = resContent as Record<string, any>;
+        const forwardedMessage =
+          forwarded.message ||
+          (typeof forwarded.error === 'object' && forwarded.error !== null ? forwarded.error.message : null) ||
+          (typeof forwarded.error === 'string' ? forwarded.error : null) ||
+          'Internal server error';
+
+        return response.status(status).json({
+          ...forwarded,
+          message: Array.isArray(forwardedMessage) ? forwardedMessage.join(', ') : forwardedMessage,
+        });
       }
 
       if (typeof resContent === 'object' && resContent !== null) {
@@ -49,12 +59,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = exception.message;
     }
 
+    const finalMessage = Array.isArray(message) ? message.join(', ') : message;
+
     response.status(status).json({
       success: false,
       data: null,
+      message: finalMessage,
       error: {
         statusCode: status,
-        message: Array.isArray(message) ? message[0] : message,
+        message: finalMessage,
         details: errorDetails,
         timestamp: new Date().toISOString(),
       },

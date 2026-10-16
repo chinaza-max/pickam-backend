@@ -230,3 +230,16 @@ model RiderZone {
   @@unique([riderId, zoneId])
   @@schema("user_schema")
 }
+
+model OtpRecord {
+  id        String   @id @default(uuid())
+  email     String
+  otpHash   String   // bcrypt hash of the 6-digit code
+  purpose   String   // "EMAIL_VERIFICATION", "PASSWORD_RESET", etc.
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, purpose])
+  @@schema("user_schema")
+}

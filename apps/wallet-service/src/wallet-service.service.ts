@@ -52,9 +52,38 @@ export class WalletService {
   }
 
   /**
-   * Generates or updates a dynamic virtual account on demand for deposits.
+   * Auto-funds the user's wallet after a delay (default 15 seconds) in test/sandbox mode.
    */
-  async refreshVirtualAccount(userId: string) {
+  scheduleAutoFunding(userId: string, accountNumber: string, amount = 10000, delayMs = 15000) {
+    this.logger.log(
+      `[TEST MODE] Scheduled auto-funding of ₦${amount} for user ${userId} on virtual account ${accountNumber} in ${delayMs / 1000} seconds...`,
+    );
+
+    setTimeout(async () => {
+      try {
+        const reference = `SAFEHAVEN_TEST_DEP_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        await this.handleSafeHavenWebhook({
+          event: 'transfer.success',
+          data: {
+            accountNumber,
+            amount,
+            reference,
+          },
+        });
+        this.logger.log(
+          `[TEST MODE AUTO-FUND SUCCESS] Credited ₦${amount} to user ${userId} (Account: ${accountNumber}, Ref: ${reference})`,
+        );
+      } catch (err) {
+        this.logger.error(`[TEST MODE AUTO-FUND FAILED] User ${userId}: ${err.message}`);
+      }
+    }, delayMs);
+  }
+
+  /**
+   * Generates or updates a dynamic virtual account on demand for deposits.
+   * Automatically schedules test mode funding after 15 seconds.
+   */
+  async refreshVirtualAccount(userId: string, autoFund = true, amount = 10000, delaySeconds = 15) {
     const wallet = await this.prisma.wallet.findUnique({
       where: { userId },
     });
@@ -119,7 +148,63 @@ export class WalletService {
     }
 
     this.logger.log(`Provisioned new temporary SafeHaven virtual account for user ${userId}`);
-    return virtualAccount;
+
+    if (autoFund) {
+      this.scheduleAutoFunding(userId, virtualAccount.accountNumber, amount, delaySeconds * 1000);
+    }
+
+    return {
+      virtualAccount,
+      autoFunding: autoFund
+        ? {
+            enabled: true,
+            amount,
+            delaySeconds,
+            message: `Test Mode: Wallet will be automatically credited with ₦${amount.toLocaleString()} in ${delaySeconds} seconds.`,
+          }
+        : null,
+    };
+  }
+
+  async fundWalletTestMode(userId: string, requestedAmount?: number, requestedDelay?: number) {
+    const amount = Number(requestedAmount) || 10000;
+    const delaySeconds = requestedDelay !== undefined ? Number(requestedDelay) : 15;
+
+    let wallet = await this.prisma.wallet.findUnique({
+      where: { userId },
+    });
+    if (!wallet) {
+      const created = await this.createWallet(userId);
+      wallet = created.wallet;
+    }
+
+    let virtualAccount = await this.prisma.virtualAccount.findUnique({
+      where: { walletId: wallet.id },
+    });
+
+    if (!virtualAccount || (virtualAccount.expiresAt && new Date() > new Date(virtualAccount.expiresAt))) {
+      const refreshed = await this.refreshVirtualAccount(userId, false);
+      virtualAccount = refreshed.virtualAccount;
+    }
+
+    this.scheduleAutoFunding(userId, virtualAccount.accountNumber, amount, delaySeconds * 1000);
+
+    return {
+      success: true,
+      message: delaySeconds > 0
+        ? `Funding initiated! ₦${amount.toLocaleString()} will be credited to your wallet in ${delaySeconds} seconds.`
+        : `Funding initiated! ₦${amount.toLocaleString()} is being credited to your wallet.`,
+      amount,
+      scheduledInSeconds: delaySeconds,
+      virtualAccount: {
+        id: virtualAccount.id,
+        bankName: virtualAccount.bankName,
+        accountName: virtualAccount.accountName,
+        accountNumber: virtualAccount.accountNumber,
+        provider: virtualAccount.provider,
+        expiresAt: virtualAccount.expiresAt,
+      },
+    };
   }
 
   async getBalance(userId: string) {
@@ -136,10 +221,10 @@ export class WalletService {
       where: { walletId: wallet.id },
     });
 
-    // Check if virtual account is expired or doesn't exist
     if (!virtualAccount || (virtualAccount.expiresAt && new Date() > new Date(virtualAccount.expiresAt))) {
       try {
-        virtualAccount = await this.refreshVirtualAccount(userId);
+        const refreshed = await this.refreshVirtualAccount(userId, false);
+        virtualAccount = refreshed.virtualAccount;
       } catch (err) {
         this.logger.warn(`Failed to auto-refresh dynamic virtual account for user ${userId}: ${err.message}`);
       }

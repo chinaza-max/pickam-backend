@@ -286,27 +286,11 @@ export class OrderServiceService {
         skip,
         take: limit,
         orderBy,
-        select: {
-          id: true,
-          pickupAddress: true,
-          destinationAddress: true,
-          pickupZoneId: true,
-          destinationZoneId: true,
-          amount: true,
-          recipientName: true,
-          pickupNotes: true,
-          deliveryNotes: true,
-          expiresAt: true,
-          createdAt: true,
-        },
       }),
       this.prisma.order.count({ where }),
     ]);
 
-    const formattedOrders = orders.map((o) => ({
-      ...o,
-      amount: Number(o.amount),
-    }));
+    const formattedOrders = await this.enrichOrdersWithUsers(orders);
 
     return buildPaginatedResponse(formattedOrders, total, page, limit);
   }
@@ -493,10 +477,7 @@ export class OrderServiceService {
       this.prisma.order.count({ where }),
     ]);
 
-    const formattedOrders = orders.map((o) => ({
-      ...o,
-      amount: Number(o.amount),
-    }));
+    const formattedOrders = await this.enrichOrdersWithUsers(orders);
 
     return buildPaginatedResponse(formattedOrders, total, page, limit);
   }
@@ -510,17 +491,84 @@ export class OrderServiceService {
       throw new NotFoundException('Order not found');
     }
 
+    const [enrichedOrder] = await this.enrichOrdersWithUsers([order]);
+
     const events = await this.prisma.orderEvent.findMany({
       where: { orderId },
       orderBy: { createdAt: 'asc' },
     });
 
     return {
-      ...order,
-      amount: Number(order.amount),
+      ...enrichedOrder,
       events,
     };
   }
+
+  /**
+   * Helper method to batch-enrich orders with customer and rider profile details from user_schema
+   */
+  private async enrichOrdersWithUsers(orders: any[]) {
+    if (!orders || orders.length === 0) return [];
+
+    const customerIds = Array.from(new Set(orders.map((o) => o.customerId).filter(Boolean)));
+    const riderIds = Array.from(new Set(orders.map((o) => o.riderId).filter(Boolean)));
+    const userIds = Array.from(new Set([...customerIds, ...riderIds]));
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        profile: {
+          select: {
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    const userMap = new Map(
+      users.map((u) => [
+        u.id,
+        {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          firstName: u.profile?.firstName ?? null,
+          lastName: u.profile?.lastName ?? null,
+          phoneNumber: u.profile?.phoneNumber ?? null,
+          avatarUrl: u.profile?.avatarUrl ?? null,
+        },
+      ]),
+    );
+
+    return orders.map((o) => {
+      const riderObj = o.riderId ? userMap.get(o.riderId) || null : null;
+      const customerObj = o.customerId ? userMap.get(o.customerId) || null : null;
+      const riderName = riderObj
+        ? [riderObj.firstName, riderObj.lastName].filter(Boolean).join(" ") || riderObj.email
+        : null;
+      const customerName = customerObj
+        ? [customerObj.firstName, customerObj.lastName].filter(Boolean).join(" ") || customerObj.email
+        : null;
+
+      return {
+        ...o,
+        amount: Number(o.amount),
+        customer: customerObj,
+        rider: riderObj,
+        riderName: o.riderName || riderName,
+        riderPhone: o.riderPhone || riderObj?.phoneNumber || null,
+        customerName: o.customerName || customerName,
+        customerPhone: o.customerPhone || customerObj?.phoneNumber || null,
+      };
+    });
+  }
+
 
   // Trigger Notification Service
   private async sendNotification(userId: string, title: string, message: string) {

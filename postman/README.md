@@ -4,9 +4,11 @@ This directory contains the complete Postman collection and dedicated documentat
 
 ---
 
-## 🌟 Special Admin API Documentation
-For exhaustive documentation on all **Admin APIs**, request/response contracts, and **Admin Privileges & RBAC Matrix**, view the dedicated Admin guide:
-👉 **[ADMIN_POSTMAN_DOCUMENTATION.md](file:///Users/macbookpro/Downloads/programming/test/pickam-backend/postman/ADMIN_POSTMAN_DOCUMENTATION.md)**
+## 🌟 Dedicated API Guides
+
+- 📍 **[LOCATION_USER_DOCUMENTATION.md](file:///Users/macbookpro/Downloads/programming/test/pickam-backend/postman/LOCATION_USER_DOCUMENTATION.md)**: User-facing guide for Coordinate Geocoding (Nominatim), State → Zones resolution, and Zone → Landmarks discovery.
+- 👑 **[ADMIN_POSTMAN_DOCUMENTATION.md](file:///Users/macbookpro/Downloads/programming/test/pickam-backend/postman/ADMIN_POSTMAN_DOCUMENTATION.md)**: Exhaustive Admin Panel documentation, RBAC matrix, and management APIs.
+
 
 ---
 

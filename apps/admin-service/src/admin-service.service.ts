@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'libs/prisma';
 import { State as CountryState } from 'country-state-city';
+import axios from 'axios';
 import {
+
   CreateStateDto,
   CreateZoneDto,
   CreateLandmarkDto,
@@ -651,4 +653,246 @@ export class AdminServiceService {
 
     return { total: enriched.length, orders: enriched };
   }
+
+  // ==========================================
+  // USER LOCATION & GEOCODING SERVICES
+  // ==========================================
+  async getStateByCoordinates(params: { latitude?: number; longitude?: number; lat?: number; lng?: number; lon?: number }) {
+    const lat = params.latitude ?? params.lat;
+    const lon = params.longitude ?? params.lng ?? params.lon;
+
+    if (lat === undefined || lon === undefined || isNaN(Number(lat)) || isNaN(Number(lon))) {
+      throw new BadRequestException('Valid latitude and longitude coordinates are required');
+    }
+
+    const numericLat = Number(lat);
+    const numericLon = Number(lon);
+
+    if (numericLat < -90 || numericLat > 90 || numericLon < -180 || numericLon > 180) {
+      throw new BadRequestException('Coordinates out of valid range: latitude must be between -90 and 90, longitude between -180 and 180');
+    }
+
+    let nominatimData: any = null;
+    let rawStateName = '';
+    let isoCode = '';
+    let stateCode = '';
+
+    try {
+      const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+        params: {
+          format: 'jsonv2',
+          lat: numericLat,
+          lon: numericLon,
+        },
+        headers: {
+          'User-Agent': 'PickamBackend/1.0 (contact@pickam.com)',
+          'Accept-Language': 'en',
+        },
+        timeout: 8000,
+      });
+
+      nominatimData = response.data;
+      const addr = nominatimData?.address || {};
+
+      rawStateName =
+        addr.state ||
+        addr.state_district ||
+        addr.county ||
+        addr.region ||
+        addr.province ||
+        addr.city ||
+        '';
+
+      isoCode = addr['ISO3166-2-lvl4'] || '';
+      if (isoCode && isoCode.startsWith('NG-')) {
+        stateCode = isoCode.replace('NG-', '').trim();
+      }
+    } catch (err) {
+      // Nominatim network fallback
+    }
+
+    const cleanStateName = rawStateName
+      ? rawStateName.replace(/\s+State$/i, '').trim()
+      : '';
+
+    let matchedState: any = null;
+
+    if (stateCode) {
+      matchedState = await this.prisma.state.findFirst({
+        where: { code: { equals: stateCode, mode: 'insensitive' } },
+        include: { zones: { where: { status: 'ACTIVE' }, select: { id: true, name: true, basePrice: true, status: true } } },
+      });
+    }
+
+    if (!matchedState && cleanStateName) {
+      matchedState = await this.prisma.state.findFirst({
+        where: { name: { equals: cleanStateName, mode: 'insensitive' } },
+        include: { zones: { where: { status: 'ACTIVE' }, select: { id: true, name: true, basePrice: true, status: true } } },
+      });
+    }
+
+    if (!matchedState && cleanStateName) {
+      matchedState = await this.prisma.state.findFirst({
+        where: { name: { contains: cleanStateName, mode: 'insensitive' } },
+        include: { zones: { where: { status: 'ACTIVE' }, select: { id: true, name: true, basePrice: true, status: true } } },
+      });
+    }
+
+    return {
+      success: true,
+      coordinates: {
+        latitude: numericLat,
+        longitude: numericLon,
+      },
+      geocoded: {
+        rawState: rawStateName || null,
+        cleanedStateName: cleanStateName || null,
+        isoCode: isoCode || null,
+        stateCode: stateCode || null,
+        displayName: nominatimData?.display_name || null,
+        address: nominatimData?.address || null,
+      },
+      matchedState: matchedState
+        ? {
+            id: matchedState.id,
+            name: matchedState.name,
+            code: matchedState.code,
+            status: matchedState.status,
+            activeZonesCount: matchedState.zones.length,
+            zones: matchedState.zones.map((z: any) => ({
+              ...z,
+              basePrice: Number(z.basePrice),
+            })),
+          }
+        : null,
+    };
+  }
+
+  async getZonesByState(dto: { stateId?: string; state?: string; stateName?: string }) {
+    const stateId = dto.stateId?.trim();
+    const queryState = (dto.state || dto.stateName)?.trim();
+
+    if (!stateId && !queryState) {
+      throw new BadRequestException('Please provide a stateId or state name');
+    }
+
+    let matchedState: any = null;
+
+    if (stateId) {
+      matchedState = await this.prisma.state.findUnique({
+        where: { id: stateId },
+      });
+    }
+
+    if (!matchedState && queryState) {
+      const cleanName = queryState.replace(/\s+State$/i, '').trim();
+      matchedState = await this.prisma.state.findFirst({
+        where: {
+          OR: [
+            { name: { equals: cleanName, mode: 'insensitive' } },
+            { code: { equals: cleanName, mode: 'insensitive' } },
+            { name: { contains: cleanName, mode: 'insensitive' } },
+          ],
+        },
+      });
+    }
+
+    if (!matchedState) {
+      throw new NotFoundException(`State '${stateId || queryState}' not found in database`);
+    }
+
+    const zones = await this.prisma.zone.findMany({
+      where: {
+        stateId: matchedState.id,
+      },
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { landmarks: true } },
+      },
+    });
+
+    const formattedZones = zones.map((z) => ({
+      id: z.id,
+      name: z.name,
+      stateId: z.stateId,
+      basePrice: Number(z.basePrice),
+      status: z.status,
+      landmarksCount: z._count.landmarks,
+      createdAt: z.createdAt,
+      updatedAt: z.updatedAt,
+    }));
+
+    return {
+      success: true,
+      state: {
+        id: matchedState.id,
+        name: matchedState.name,
+        code: matchedState.code,
+        status: matchedState.status,
+      },
+      totalZones: formattedZones.length,
+      zones: formattedZones,
+    };
+  }
+
+  async getLandmarksByZone(dto: { zoneId?: string; zone?: string; zoneName?: string }) {
+    const zoneId = dto.zoneId?.trim();
+    const queryZone = (dto.zone || dto.zoneName)?.trim();
+
+    if (!zoneId && !queryZone) {
+      throw new BadRequestException('Please provide a zoneId or zone name');
+    }
+
+    let matchedZone: any = null;
+
+    if (zoneId) {
+      matchedZone = await this.prisma.zone.findUnique({
+        where: { id: zoneId },
+        include: { state: { select: { id: true, name: true, code: true } } },
+      });
+    }
+
+    if (!matchedZone && queryZone) {
+      matchedZone = await this.prisma.zone.findFirst({
+        where: {
+          OR: [
+            { name: { equals: queryZone, mode: 'insensitive' } },
+            { name: { contains: queryZone, mode: 'insensitive' } },
+          ],
+        },
+        include: { state: { select: { id: true, name: true, code: true } } },
+      });
+    }
+
+    if (!matchedZone) {
+      throw new NotFoundException(`Zone '${zoneId || queryZone}' not found in database`);
+    }
+
+    const landmarks = await this.prisma.landmark.findMany({
+      where: {
+        zoneId: matchedZone.id,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return {
+      success: true,
+      zone: {
+        id: matchedZone.id,
+        name: matchedZone.name,
+        basePrice: Number(matchedZone.basePrice),
+        status: matchedZone.status,
+        state: matchedZone.state,
+      },
+      totalLandmarks: landmarks.length,
+      landmarks: landmarks.map((lm) => ({
+        id: lm.id,
+        name: lm.name,
+        zoneId: lm.zoneId,
+        createdAt: lm.createdAt,
+        updatedAt: lm.updatedAt,
+      })),
+    };
+  }
 }
+

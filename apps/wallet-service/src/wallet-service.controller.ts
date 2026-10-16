@@ -41,10 +41,23 @@ export class WalletServiceController {
   @Post('me/virtual-account')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate a dynamic virtual account on demand for deposit' })
+  @ApiOperation({ summary: 'Generate a dynamic virtual account on demand for deposit (auto-funded after 15s in test mode)' })
   async refreshVirtualAccount(@CurrentUser('id') userId: string) {
-    return this.walletService.refreshVirtualAccount(userId);
+    return this.walletService.refreshVirtualAccount(userId, true, 10000, 15);
   }
+
+  @Post('me/fund')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test/Dev Mode: Trigger wallet funding with custom amount and delay (default 15s)' })
+  async fundWallet(
+    @CurrentUser('id') userId: string,
+    @Body('amount') amount?: number,
+    @Body('delaySeconds') delaySeconds?: number,
+  ) {
+    return this.walletService.fundWalletTestMode(userId, amount, delaySeconds);
+  }
+
 
   @Get('me/transactions')
   @UseGuards(AuthGuard)

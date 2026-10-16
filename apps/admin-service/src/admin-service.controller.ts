@@ -143,6 +143,23 @@ export class AdminServiceController {
     return this.adminService.listPricingMatrices(query);
   }
 
+  @Public()
+  @Get('pricing/calculate')
+  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks (Public / Internal)' })
+  async calculatePrice(
+    @Query('fromZoneId') fromZoneId?: string,
+    @Query('toZoneId') toZoneId?: string,
+    @Query('fromLandmarkId') fromLandmarkId?: string,
+    @Query('toLandmarkId') toLandmarkId?: string,
+  ) {
+    return this.adminService.calculateDeliveryPrice({
+      fromZoneId,
+      toZoneId,
+      fromLandmarkId,
+      toLandmarkId,
+    });
+  }
+
   @Get('pricing/:id')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -159,23 +176,6 @@ export class AdminServiceController {
   @ApiOperation({ summary: 'Delete a pricing matrix entry (Admin only)' })
   async deletePricingMatrix(@Param('id') id: string) {
     return this.adminService.deletePricingMatrix(id);
-  }
-
-  @Public()
-  @Get('pricing/calculate')
-  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks (Public / Internal)' })
-  async calculatePrice(
-    @Query('fromZoneId') fromZoneId?: string,
-    @Query('toZoneId') toZoneId?: string,
-    @Query('fromLandmarkId') fromLandmarkId?: string,
-    @Query('toLandmarkId') toLandmarkId?: string,
-  ) {
-    return this.adminService.calculateDeliveryPrice({
-      fromZoneId,
-      toZoneId,
-      fromLandmarkId,
-      toLandmarkId,
-    });
   }
 
   @Get('dashboard')

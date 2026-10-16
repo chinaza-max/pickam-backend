@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsNumber, IsNotEmpty, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserRole, OrderStatus, RiderStatus, AdminPrivilege, AdminRole } from 'libs/constants';
+
 
 // ==========================================
 // USER SERVICE DTOs
@@ -346,3 +348,88 @@ export class CreatePricingMatrixDto {
   @IsOptional()
   status? = 'ACTIVE';
 }
+
+// ==========================================
+// USER LOCATION & GEOCODING DTOs
+// ==========================================
+export class GetStateByCoordinatesDto {
+  @ApiProperty({ example: 6.5244, required: false, description: 'Latitude coordinate' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  latitude?: number;
+
+  @ApiProperty({ example: 3.3792, required: false, description: 'Longitude coordinate' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  longitude?: number;
+
+  @ApiProperty({ example: 6.5244, required: false, description: 'Alternative field for latitude' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  lat?: number;
+
+  @ApiProperty({ example: 3.3792, required: false, description: 'Alternative field for longitude' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  lng?: number;
+
+  @ApiProperty({ example: 3.3792, required: false, description: 'Alternative field for longitude (lon)' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  lon?: number;
+}
+
+export class GetZonesByStateDto {
+  @ApiProperty({ example: 'state-uuid-1234', required: false, description: 'State UUID in database' })
+  @IsString()
+  @IsOptional()
+  stateId?: string;
+
+  @ApiProperty({ example: 'Lagos', required: false, description: 'State Name (e.g. Lagos, Enugu) or ISO Code (e.g. LA)' })
+  @IsString()
+  @IsOptional()
+  state?: string;
+
+  @ApiProperty({ example: 'Lagos', required: false, description: 'Alternative field for State Name' })
+  @IsString()
+  @IsOptional()
+  stateName?: string;
+}
+
+export class GetLandmarksByZoneDto {
+  @ApiProperty({ example: 'zone-uuid-1234', required: false, description: 'Zone UUID in database' })
+  @IsString()
+  @IsOptional()
+  zoneId?: string;
+
+  @ApiProperty({ example: 'Ikeja', required: false, description: 'Zone Name (e.g. Ikeja, New Haven)' })
+  @IsString()
+  @IsOptional()
+  zone?: string;
+
+  @ApiProperty({ example: 'Ikeja', required: false, description: 'Alternative field for Zone Name' })
+  @IsString()
+  @IsOptional()
+  zoneName?: string;
+}
+
+export class FundWalletDto {
+  @ApiProperty({ example: 10000, required: false, description: 'Amount to fund in NGN (default: 10000)' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  amount?: number;
+
+  @ApiProperty({ example: 15, required: false, description: 'Delay in seconds before crediting (default: 15)' })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  delaySeconds?: number;
+}
+
+

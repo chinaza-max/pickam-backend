@@ -33,8 +33,12 @@ import {
   AddPasswordDto,
   ChangePasswordDto,
   AdminUpdateUserDto,
+  GetStateByCoordinatesDto,
+  GetZonesByStateDto,
+  GetLandmarksByZoneDto,
+  FundWalletDto,
 } from 'libs/dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiProduces, ApiQuery } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'libs/common';
 
 @Controller()
@@ -70,7 +74,7 @@ export class GatewayController {
       targetUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:3003';
     } else if (path.startsWith('/notifications')) {
       targetUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3004';
-    } else if (path.startsWith('/admin')) {
+    } else if (path.startsWith('/admin') || path.startsWith('/locations')) {
       targetUrl = process.env.ADMIN_SERVICE_URL || 'http://localhost:3005';
     } else {
       throw new HttpException(
@@ -125,6 +129,38 @@ export class GatewayController {
   @ApiOperation({ summary: 'Authenticate or register via Google/Apple social login' })
   async socialLogin(@Body() dto: SocialLoginDto) {
     return this.forward('post', '/auth/social-login', dto);
+  }
+
+  @ApiTags("Auth & Profiles")
+  @Public()
+  @Post("auth/send-otp")
+  @ApiOperation({ summary: "Send a 6-digit OTP code to an email address" })
+  async sendOtp(@Body() dto: any) {
+    return this.forward("post", "/auth/send-otp", dto);
+  }
+
+  @ApiTags("Auth & Profiles")
+  @Public()
+  @Post("auth/verify-otp")
+  @ApiOperation({ summary: "Verify a 6-digit OTP code sent to an email address" })
+  async verifyOtp(@Body() dto: any) {
+    return this.forward("post", "/auth/verify-otp", dto);
+  }
+
+  @ApiTags("Auth & Profiles")
+  @Public()
+  @Post("auth/forgot-password")
+  @ApiOperation({ summary: "Request a password reset OTP sent to email" })
+  async forgotPassword(@Body() dto: any) {
+    return this.forward("post", "/auth/forgot-password", dto);
+  }
+
+  @ApiTags("Auth & Profiles")
+  @Public()
+  @Post("auth/reset-password")
+  @ApiOperation({ summary: "Reset user password using OTP" })
+  async resetPassword(@Body() dto: any) {
+    return this.forward("post", "/auth/reset-password", dto);
   }
 
   @ApiTags('Auth & Profiles')
@@ -281,9 +317,67 @@ export class GatewayController {
   @Post('wallets/me/virtual-account')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate a fresh dynamic virtual account on demand for deposits' })
+  @ApiOperation({ summary: 'Generate a fresh dynamic virtual account on demand for deposits (auto-credited after 15s in test mode)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Dynamic virtual account generated and 15s test funding scheduled',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          virtualAccount: {
+            id: 'va-uuid-1234',
+            bankName: 'SafeHaven MFB (Sandbox)',
+            accountName: 'John Doe',
+            accountNumber: '9912345678',
+            provider: 'SAFEHAVEN_MOCK',
+            expiresAt: '2026-08-22T19:30:00.000Z'
+          },
+          autoFunding: {
+            enabled: true,
+            amount: 10000,
+            delaySeconds: 15,
+            message: 'Test Mode: Wallet will be automatically credited with ₦10,000 in 15 seconds.'
+          }
+        },
+        error: null
+      }
+    }
+  })
   async refreshVirtualAccount(@CurrentUser() user: any) {
     return this.forward('post', '/wallets/me/virtual-account', null, null, user);
+  }
+
+  @ApiTags('Wallet Operations')
+  @Post('wallets/me/fund')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test/Dev Mode: Trigger wallet funding with custom amount and delay (default 15s)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Wallet funding scheduled or credited',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          message: 'Funding initiated! ₦10,000 will be credited to your wallet in 15 seconds.',
+          amount: 10000,
+          scheduledInSeconds: 15,
+          virtualAccount: {
+            id: 'va-uuid-1234',
+            bankName: 'SafeHaven MFB (Sandbox)',
+            accountName: 'John Doe',
+            accountNumber: '9912345678',
+            provider: 'SAFEHAVEN_MOCK'
+          }
+        },
+        error: null
+      }
+    }
+  })
+  async fundWallet(@CurrentUser() user: any, @Body() dto: FundWalletDto) {
+    return this.forward('post', '/wallets/me/fund', dto, null, user);
   }
 
   @ApiTags('Wallet Operations')
@@ -415,6 +509,294 @@ export class GatewayController {
   }
 
   // ==========================================
+  // USER LOCATION & GEOCODING
+  // ==========================================
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Get('locations/state-by-coordinates')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Reverse geocode coordinates to get state (via Nominatim)' })
+  @ApiQuery({ name: 'latitude', required: false, example: 6.5244, description: 'Latitude coordinate' })
+  @ApiQuery({ name: 'longitude', required: false, example: 3.3792, description: 'Longitude coordinate' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reverse geocoded location metadata and matched database State record',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          coordinates: { latitude: 6.5244, longitude: 3.3792 },
+          geocoded: {
+            rawState: 'Lagos State',
+            cleanedStateName: 'Lagos',
+            isoCode: 'NG-LA',
+            stateCode: 'LA',
+            displayName: 'Tizeti HQ Test Address, Eletu Odibo Street, Akoka, Shomolu, Lagos State, 102216, Nigeria',
+            address: {
+              amenity: 'Tizeti HQ Test Address',
+              road: 'Eletu Odibo Street',
+              residential: 'Akoka',
+              suburb: 'Akoka',
+              county: 'Shomolu',
+              state: 'Lagos State',
+              'ISO3166-2-lvl4': 'NG-LA',
+              postcode: '102216',
+              country: 'Nigeria',
+              country_code: 'ng'
+            }
+          },
+          matchedState: {
+            id: '0c3c416a-14a9-4fa3-8dd6-b19f9464944b',
+            name: 'Lagos',
+            code: 'LA',
+            status: 'ACTIVE',
+            activeZonesCount: 1,
+            zones: [
+              { id: 'zone-uuid-1', name: 'Ikeja', basePrice: 500, status: 'ACTIVE' }
+            ]
+          }
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request — Missing or invalid latitude/longitude parameters' })
+  async getStateByCoordinatesGet(@Query() query: GetStateByCoordinatesDto) {
+    return this.forward('get', '/locations/state-by-coordinates', null, query);
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Post('locations/state-by-coordinates')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Reverse geocode coordinates to get state (via Nominatim)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reverse geocoded location metadata and matched database State record',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          coordinates: { latitude: 6.4584, longitude: 7.5464 },
+          geocoded: {
+            rawState: 'Enugu State',
+            cleanedStateName: 'Enugu',
+            isoCode: 'NG-EN',
+            stateCode: 'EN',
+            displayName: 'Prince Cornelius Nnaji Street, Enugu, New Haven Layout Extension, Enugu, Enugu North, Enugu State, 400102, Nigeria',
+            address: {
+              road: 'Prince Cornelius Nnaji Street',
+              residential: 'Enugu',
+              suburb: 'New Haven Layout Extension',
+              city: 'Enugu',
+              county: 'Enugu North',
+              state: 'Enugu State',
+              'ISO3166-2-lvl4': 'NG-EN',
+              postcode: '400102',
+              country: 'Nigeria',
+              country_code: 'ng'
+            }
+          },
+          matchedState: {
+            id: '49bd6b96-294d-41f6-950d-a0e40d2ec2f6',
+            name: 'Enugu',
+            code: 'EN',
+            status: 'ACTIVE',
+            activeZonesCount: 0,
+            zones: []
+          }
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request — Missing or invalid latitude/longitude parameters' })
+  async getStateByCoordinatesPost(@Body() dto: GetStateByCoordinatesDto) {
+    return this.forward('post', '/locations/state-by-coordinates', dto);
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Get('locations/zones-by-state')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Get delivery zones in a state by stateId or state name' })
+  @ApiQuery({ name: 'state', required: false, example: 'Kaduna' })
+  @ApiQuery({ name: 'stateId', required: false, example: 'state-uuid-1234' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of active delivery zones in the specified state',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          state: {
+            id: 'db05d24f-0f06-4bb2-9cbd-f1d7f3d792aa',
+            name: 'Kaduna',
+            code: 'KD',
+            status: 'ACTIVE'
+          },
+          totalZones: 1,
+          zones: [
+            {
+              id: '028798e0-4dd5-4890-8f97-61111625e375',
+              name: 'gwagwalada',
+              stateId: 'db05d24f-0f06-4bb2-9cbd-f1d7f3d792aa',
+              basePrice: 3000,
+              status: 'ACTIVE',
+              landmarksCount: 1,
+              createdAt: '2026-08-06T00:40:20.002Z',
+              updatedAt: '2026-08-06T17:37:20.819Z'
+            }
+          ]
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Not Found — Specified state does not exist in database' })
+  async getZonesByStateGet(@Query() query: GetZonesByStateDto) {
+    return this.forward('get', '/locations/zones-by-state', null, query);
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Post('locations/zones-by-state')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Get delivery zones in a state by stateId or state name' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of active delivery zones in the specified state',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          state: {
+            id: 'c3e1b767-ea54-4ba1-8e12-138080f808ef',
+            name: 'Abuja Federal Capital Territory',
+            code: 'FC',
+            status: 'ACTIVE'
+          },
+          totalZones: 2,
+          zones: [
+            {
+              id: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4',
+              name: 'kubwa',
+              stateId: 'c3e1b767-ea54-4ba1-8e12-138080f808ef',
+              basePrice: 1500,
+              status: 'ACTIVE',
+              landmarksCount: 2
+            }
+          ]
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Not Found — Specified state does not exist in database' })
+  async getZonesByStatePost(@Body() dto: GetZonesByStateDto) {
+    return this.forward('post', '/locations/zones-by-state', dto);
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Get('locations/landmarks-by-zone')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Get all landmarks in a zone by zoneId or zone name' })
+  @ApiQuery({ name: 'zone', required: false, example: 'kubwa' })
+  @ApiQuery({ name: 'zoneId', required: false, example: 'zone-uuid-1234' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of registered landmarks within the specified zone',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          zone: {
+            id: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4',
+            name: 'kubwa',
+            basePrice: 1500,
+            status: 'ACTIVE',
+            state: {
+              id: 'c3e1b767-ea54-4ba1-8e12-138080f808ef',
+              name: 'Abuja Federal Capital Territory',
+              code: 'FC'
+            }
+          },
+          totalLandmarks: 2,
+          landmarks: [
+            {
+              id: '690cf7f3-053a-46f4-9163-055263999ebf',
+              name: 'firstbank',
+              zoneId: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4',
+              createdAt: '2026-08-06T00:04:43.116Z',
+              updatedAt: '2026-08-06T00:04:43.116Z'
+            },
+            {
+              id: '10038e5d-a6ab-4ce8-9980-a7bbd5e165d1',
+              name: 'kfc',
+              zoneId: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4',
+              createdAt: '2026-08-06T00:05:34.996Z',
+              updatedAt: '2026-08-06T00:05:34.996Z'
+            }
+          ]
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Not Found — Specified delivery zone does not exist in database' })
+  async getLandmarksByZoneGet(@Query() query: GetLandmarksByZoneDto) {
+    return this.forward('get', '/locations/landmarks-by-zone', null, query);
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Post('locations/landmarks-by-zone')
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: Get all landmarks in a zone by zoneId or zone name' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of registered landmarks within the specified zone',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          success: true,
+          zone: {
+            id: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4',
+            name: 'kubwa',
+            basePrice: 1500,
+            status: 'ACTIVE',
+            state: {
+              id: 'c3e1b767-ea54-4ba1-8e12-138080f808ef',
+              name: 'Abuja Federal Capital Territory',
+              code: 'FC'
+            }
+          },
+          totalLandmarks: 2,
+          landmarks: [
+            {
+              id: '690cf7f3-053a-46f4-9163-055263999ebf',
+              name: 'firstbank',
+              zoneId: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4'
+            }
+          ]
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Not Found — Specified delivery zone does not exist in database' })
+  async getLandmarksByZonePost(@Body() dto: GetLandmarksByZoneDto) {
+    return this.forward('post', '/locations/landmarks-by-zone', dto);
+  }
+
+  // ==========================================
   // ADMIN SYSTEM (ADMIN SERVICE)
   // ==========================================
 
@@ -440,10 +822,56 @@ export class GatewayController {
   @ApiTags('Admin Operations')
   @Public()
   @Get('states')
-  @ApiOperation({ summary: 'Public: List all states with their zones' })
+  @ApiProduces('application/json')
+  @ApiOperation({ summary: 'Public: List all states with their active zones' })
+  @ApiQuery({ name: 'page', required: false, example: 1, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, example: 40, description: 'Items per page (default: 40)' })
+  @ApiQuery({ name: 'search', required: false, example: 'Lagos', description: 'Filter states by name' })
+  @ApiQuery({ name: 'status', required: false, example: 'ACTIVE', description: 'Filter by status: ACTIVE or INACTIVE' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of all states with their configured delivery zones',
+    schema: {
+      example: {
+        success: true,
+        data: [
+          {
+            id: 'c3e1b767-ea54-4ba1-8e12-138080f808ef',
+            name: 'Abuja Federal Capital Territory',
+            code: 'FC',
+            status: 'ACTIVE',
+            createdAt: '2026-08-05T23:45:13.252Z',
+            updatedAt: '2026-08-05T23:46:26.999Z',
+            zones: [
+              { id: 'c1c3d2a6-0f2e-4a02-a0c0-f937a9b9331d', name: 'zuba', basePrice: '1500', status: 'ACTIVE' },
+              { id: '4adcca41-7d8d-481a-b8cf-b7162a35c9d4', name: 'kubwa', basePrice: '1500', status: 'ACTIVE' }
+            ]
+          },
+          {
+            id: 'bd181c9a-7141-4d2f-9439-d1ebd87d606a',
+            name: 'Abia',
+            code: 'AB',
+            status: 'ACTIVE',
+            createdAt: '2026-08-05T23:45:13.230Z',
+            updatedAt: '2026-08-05T23:46:26.981Z',
+            zones: []
+          }
+        ],
+        pagination: {
+          page: 1,
+          limit: 40,
+          total: 37,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevious: false
+        }
+      }
+    }
+  })
   async listPublicStates(@Query() query: PaginationQueryDto) {
     return this.forward('get', '/admin/states', null, query);
   }
+
 
   @ApiTags('Admin Operations')
   @Get('admin/states')
@@ -570,6 +998,94 @@ export class GatewayController {
   }
 
   @ApiTags('Admin Operations')
+  @Public()
+  @Get('admin/pricing/calculate')
+  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks (Admin path)' })
+  async calculatePrice(
+    @Query('fromZoneId') fromZoneId?: string,
+    @Query('toZoneId') toZoneId?: string,
+    @Query('fromLandmarkId') fromLandmarkId?: string,
+    @Query('toLandmarkId') toLandmarkId?: string,
+  ) {
+    return this.forward('get', '/admin/pricing/calculate', null, {
+      fromZoneId,
+      toZoneId,
+      fromLandmarkId,
+      toLandmarkId,
+    });
+  }
+
+  // ==========================================
+  // PUBLIC PRICING (User-facing, no /admin prefix)
+  // ==========================================
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Get('pricing/calculate')
+  @ApiOperation({ summary: 'Public: Calculate delivery price between two zones or landmarks' })
+  @ApiResponse({
+    status: 200,
+    description: 'Calculated delivery price between two zones or landmarks',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          fromZone: { id: 'zone-uuid-1', name: 'Ikeja' },
+          toZone: { id: 'zone-uuid-2', name: 'Lekki' },
+          price: 1200,
+          currency: 'NGN'
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'No pricing matrix found for the given zones' })
+  async calculatePricePublicGet(
+    @Query('fromZoneId') fromZoneId?: string,
+    @Query('toZoneId') toZoneId?: string,
+    @Query('fromLandmarkId') fromLandmarkId?: string,
+    @Query('toLandmarkId') toLandmarkId?: string,
+  ) {
+    return this.forward('get', '/admin/pricing/calculate', null, {
+      fromZoneId,
+      toZoneId,
+      fromLandmarkId,
+      toLandmarkId,
+    });
+  }
+
+  @ApiTags('User Location & Geocoding')
+  @Public()
+  @Post('pricing/calculate')
+  @ApiOperation({ summary: 'Public: Calculate delivery price between two zones or landmarks (POST Body)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Calculated delivery price between two zones or landmarks',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          fromZone: { id: 'zone-uuid-1', name: 'Ikeja' },
+          toZone: { id: 'zone-uuid-2', name: 'Lekki' },
+          price: 1200,
+          currency: 'NGN'
+        },
+        error: null
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'No pricing matrix found for the given zones' })
+  async calculatePricePublicPost(
+    @Body() body: { fromZoneId?: string; toZoneId?: string; fromLandmarkId?: string; toLandmarkId?: string },
+  ) {
+    return this.forward('get', '/admin/pricing/calculate', null, {
+      fromZoneId: body.fromZoneId,
+      toZoneId: body.toZoneId,
+      fromLandmarkId: body.fromLandmarkId,
+      toLandmarkId: body.toLandmarkId,
+    });
+  }
+
+  @ApiTags('Admin Operations')
   @Get('admin/pricing/:id')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -587,24 +1103,6 @@ export class GatewayController {
   @ApiOperation({ summary: 'Delete a pricing matrix entry (Admin only)' })
   async deletePricing(@CurrentUser() user: any, @Param('id') id: string) {
     return this.forward('delete', `/admin/pricing/${id}`, null, null, user);
-  }
-
-  @ApiTags('Admin Operations')
-  @Public()
-  @Get('admin/pricing/calculate')
-  @ApiOperation({ summary: 'Calculate pricing between zones or landmarks' })
-  async calculatePrice(
-    @Query('fromZoneId') fromZoneId?: string,
-    @Query('toZoneId') toZoneId?: string,
-    @Query('fromLandmarkId') fromLandmarkId?: string,
-    @Query('toLandmarkId') toLandmarkId?: string,
-  ) {
-    return this.forward('get', '/admin/pricing/calculate', null, {
-      fromZoneId,
-      toZoneId,
-      fromLandmarkId,
-      toLandmarkId,
-    });
   }
 
 
