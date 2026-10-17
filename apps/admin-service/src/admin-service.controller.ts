@@ -16,6 +16,8 @@ import {
   CreateZoneDto,
   CreateLandmarkDto,
   CreatePricingMatrixDto,
+  CreateDropOffPartnerDto,
+  UpdateDropOffPartnerDto,
 } from './dto/admin.dto';
 import { AuthGuard, RolesGuard } from 'libs/guards';
 import { Public, Roles } from 'libs/decorators';
@@ -204,4 +206,66 @@ export class AdminServiceController {
   async getRecentOrders() {
     return this.adminService.getRecentOrders();
   }
+
+  // ==========================================
+  // DROP-OFF PARTNER ENDPOINTS
+  // ==========================================
+
+  @Post('drop-off-partners')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register an emergency drop-off partner tied to a landmark (Admin only)' })
+  async createDropOffPartner(@Body() dto: CreateDropOffPartnerDto) {
+    return this.adminService.createDropOffPartner(dto);
+  }
+
+  @Get('drop-off-partners')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all emergency drop-off partners (Admin only)' })
+  async listDropOffPartners(
+    @Query() query: PaginationQueryDto & { landmarkId?: string; status?: string },
+  ) {
+    return this.adminService.listDropOffPartners(query);
+  }
+
+  @Public()
+  @Get('landmarks/:landmarkId/drop-off-partners')
+  @ApiOperation({ summary: 'Get active emergency drop-off partners for a landmark (Public/Rider)' })
+  async getDropOffPartnersByLandmark(@Param('landmarkId') landmarkId: string) {
+    return this.adminService.getDropOffPartnersByLandmark(landmarkId);
+  }
+
+  @Get('drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get details of a single drop-off partner (Admin only)' })
+  async getDropOffPartner(@Param('id') id: string) {
+    return this.adminService.getDropOffPartner(id);
+  }
+
+  @Put('drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update an emergency drop-off partner (Admin only)' })
+  async updateDropOffPartner(
+    @Param('id') id: string,
+    @Body() dto: UpdateDropOffPartnerDto,
+  ) {
+    return this.adminService.updateDropOffPartner(id, dto);
+  }
+
+  @Delete('drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete an emergency drop-off partner (Admin only)' })
+  async deleteDropOffPartner(@Param('id') id: string) {
+    return this.adminService.deleteDropOffPartner(id);
+  }
 }
+

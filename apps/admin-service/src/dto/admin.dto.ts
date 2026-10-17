@@ -88,3 +88,56 @@ export {
   GetLandmarksByZoneDto,
 } from 'libs/dto';
 
+export class CreateDropOffPartnerDto {
+  @ApiProperty({ example: 'Mama Ngozi' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: '+2348011223344' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: 'Shop 12, New Haven Market' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'landmark-uuid-1234', description: 'Landmark this partner is located at' })
+  @IsString()
+  @IsNotEmpty()
+  landmarkId: string;
+
+  @ApiProperty({ example: 'Available from 8am-6pm Mon-Sat', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class UpdateDropOffPartnerDto {
+  @ApiProperty({ example: 'Mama Ngozi', required: false })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiProperty({ example: '+2348011223344', required: false })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiProperty({ example: 'Shop 12, New Haven Market', required: false })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiProperty({ example: 'ACTIVE', required: false })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ example: 'Available from 8am-6pm Mon-Sat', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}

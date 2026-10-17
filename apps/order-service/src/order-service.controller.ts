@@ -44,12 +44,23 @@ export class OrderServiceController {
   @Post(':id/accept')
   @UseGuards(RolesGuard)
   @Roles(UserRole.RIDER)
-  @ApiOperation({ summary: 'Rider accepts a pending order (Riders only)' })
+  @ApiOperation({ summary: 'Rider accepts a pending or assigned order (Riders only)' })
   async acceptOrder(
     @Param('id') orderId: string,
     @CurrentUser('id') riderId: string,
   ) {
     return this.orderService.acceptOrder(orderId, riderId);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.RIDER)
+  @ApiOperation({ summary: 'Rider rejects/declines an assigned order (Riders only)' })
+  async rejectOrder(
+    @Param('id') orderId: string,
+    @CurrentUser('id') riderId: string,
+  ) {
+    return this.orderService.rejectOrder(orderId, riderId);
   }
 
   @Get('available')
@@ -82,6 +93,16 @@ export class OrderServiceController {
     @CurrentUser('role') role: string,
   ) {
     return this.orderService.cancelOrder(orderId, userId, role);
+  }
+
+  @Post(':id/confirm-receipt')
+  @ApiOperation({ summary: 'Customer confirms package receipt, releasing payment to courier' })
+  async confirmReceipt(
+    @Param('id') orderId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: string,
+  ) {
+    return this.orderService.confirmReceipt(orderId, userId, role);
   }
 
   @Get('history')

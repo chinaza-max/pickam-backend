@@ -173,6 +173,16 @@ export class UserServiceController {
     return this.userService.getRiderZones(userId);
   }
 
+  @Put('riders/:userId/payout-settings')
+  @Public()
+  @ApiOperation({ summary: 'Internal/Admin: Update rider compensation model (PERCENTAGE or MONTHLY salary)' })
+  async updateRiderPayoutSettings(
+    @Param('userId') userId: string,
+    @Body() dto: { payoutType: string; commissionRate?: number; monthlySalary?: number },
+  ) {
+    return this.userService.updateRiderPayoutSettings(userId, dto);
+  }
+
   // ==========================================
   // ADMIN USER MANAGEMENT ENDPOINTS
   // ==========================================

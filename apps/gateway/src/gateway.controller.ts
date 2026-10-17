@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Put,
+  Patch,
   Delete,
   Param,
   UseGuards,
@@ -37,6 +38,8 @@ import {
   GetZonesByStateDto,
   GetLandmarksByZoneDto,
   FundWalletDto,
+  CreateDropOffPartnerDto,
+  UpdateDropOffPartnerDto,
 } from 'libs/dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiProduces, ApiQuery } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'libs/common';
@@ -46,7 +49,7 @@ export class GatewayController {
   constructor(private readonly httpService: HttpService) {}
 
   private async forward(
-    method: 'get' | 'post' | 'put' | 'delete',
+    method: 'get' | 'post' | 'put' | 'delete' | 'patch',
     path: string,
     body?: any,
     query?: any,
@@ -441,6 +444,16 @@ export class GatewayController {
   }
 
   @ApiTags('Delivery Orders — Rider')
+  @Post('orders/:id/reject')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.RIDER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Rider rejects/declines an assigned order' })
+  async rejectOrder(@CurrentUser() user: any, @Param('id') orderId: string) {
+    return this.forward('post', `/orders/${orderId}/reject`, null, null, user);
+  }
+
+  @ApiTags('Delivery Orders — Rider')
   @Get('orders/available')
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.RIDER)
@@ -466,6 +479,15 @@ export class GatewayController {
   @ApiOperation({ summary: 'Cancel order and refund units' })
   async cancelOrder(@CurrentUser() user: any, @Param('id') orderId: string) {
     return this.forward('post', `/orders/${orderId}/cancel`, null, null, user);
+  }
+
+  @ApiTags('Delivery Orders')
+  @Post('orders/:id/confirm-receipt')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Customer confirms package receipt, releasing payment to courier' })
+  async confirmReceipt(@CurrentUser() user: any, @Param('id') orderId: string) {
+    return this.forward('post', `/orders/${orderId}/confirm-receipt`, null, null, user);
   }
 
   @ApiTags('Delivery Orders')
@@ -498,6 +520,64 @@ export class GatewayController {
     return this.forward('get', '/notifications/me', null, query, user);
   }
 
+  @ApiTags('Notifications')
+  @Get('notifications/me/unread-count')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get count of unread notifications for current user' })
+  async getUnreadNotificationCount(@CurrentUser() user: any) {
+    return this.forward('get', '/notifications/me/unread-count', null, null, user);
+  }
+
+  @ApiTags('Notifications')
+  @Post('notifications/fcm-token')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register/refresh FCM push notification token for current user' })
+  async registerFcmToken(@CurrentUser() user: any, @Body() body: { fcmToken: string }) {
+    return this.forward('post', '/notifications/fcm-token', body, null, user);
+  }
+
+  @ApiTags('Notifications')
+  @Patch('notifications/:id/read')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  async markNotificationAsRead(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.forward('patch', `/notifications/${id}/read`, null, null, user);
+  }
+
+  @ApiTags('Notifications')
+  @Patch('notifications/me/read-all')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mark all notifications as read for current user' })
+  async markAllNotificationsAsRead(@CurrentUser() user: any) {
+    return this.forward('patch', '/notifications/me/read-all', null, null, user);
+  }
+
+  @ApiTags('Notifications')
+  @Post('notifications/test')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Send a test push/in-app notification to the current user' })
+  async sendTestNotification(@CurrentUser() user: any) {
+    const userId = user.sub || user.id;
+    return this.forward(
+      'post',
+      '/notifications',
+      {
+        userId,
+        title: 'PickAm Rider Alerts 🛵',
+        message: 'Push notification & sound chime test successful! You are ready for live orders.',
+        type: 'TEST_NOTIFICATION',
+        data: { test: 'true' },
+      },
+      null,
+      null,
+    );
+  }
+
   @ApiTags('Admin — Audit Logs')
   @Get('admin/notifications')
   @UseGuards(AuthGuard, RolesGuard)
@@ -506,6 +586,16 @@ export class GatewayController {
   @ApiOperation({ summary: 'Admin: Retrieve paginated system-wide notification log' })
   async getAllNotifications(@CurrentUser() user: any, @Query() query: PaginationQueryDto & { userId?: string }) {
     return this.forward('get', '/notifications', null, query, user);
+  }
+
+  @ApiTags('Admin — Notifications')
+  @Post('admin/notifications/broadcast')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Broadcast push notification to topic (riders, customers, or all)' })
+  async broadcastNotification(@CurrentUser() user: any, @Body() body: any) {
+    return this.forward('post', '/notifications/broadcast', body, null, user);
   }
 
   // ==========================================
@@ -1169,4 +1259,91 @@ export class GatewayController {
   async getRiderZones(@CurrentUser() user: any, @Param('userId') userId: string) {
     return this.forward('get', `/riders/${userId}/zones`, null, null, user);
   }
+
+  @ApiTags('Admin — Riders')
+  @Put('admin/riders/:userId/payout-settings')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Configure rider payout model (PERCENTAGE or MONTHLY salary)' })
+  async updateRiderPayoutSettings(
+    @CurrentUser() user: any,
+    @Param('userId') userId: string,
+    @Body() dto: { payoutType: string; commissionRate?: number; monthlySalary?: number },
+  ) {
+    return this.forward('put', `/riders/${userId}/payout-settings`, dto, null, user);
+  }
+
+  // ==========================================
+  // DROP-OFF PARTNER ENDPOINTS (ADMIN SERVICE)
+  // ==========================================
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Post('admin/drop-off-partners')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Register an emergency drop-off partner' })
+  async createDropOffPartner(
+    @CurrentUser() user: any,
+    @Body() dto: CreateDropOffPartnerDto,
+  ) {
+    return this.forward('post', '/admin/drop-off-partners', dto, null, user);
+  }
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Get('admin/drop-off-partners')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: List emergency drop-off partners' })
+  async listDropOffPartners(
+    @CurrentUser() user: any,
+    @Query() query: PaginationQueryDto & { landmarkId?: string; status?: string },
+  ) {
+    return this.forward('get', '/admin/drop-off-partners', null, query, user);
+  }
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Public()
+  @Get('admin/landmarks/:landmarkId/drop-off-partners')
+  @ApiOperation({ summary: 'Get active emergency drop-off partners for a landmark' })
+  async getDropOffPartnersByLandmark(@Param('landmarkId') landmarkId: string) {
+    return this.forward('get', `/admin/landmarks/${landmarkId}/drop-off-partners`, null, null, null);
+  }
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Get('admin/drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Get details of an emergency drop-off partner' })
+  async getDropOffPartner(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.forward('get', `/admin/drop-off-partners/${id}`, null, null, user);
+  }
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Put('admin/drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Update an emergency drop-off partner' })
+  async updateDropOffPartner(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateDropOffPartnerDto,
+  ) {
+    return this.forward('put', `/admin/drop-off-partners/${id}`, dto, null, user);
+  }
+
+  @ApiTags('Admin — Drop-Off Partners')
+  @Delete('admin/drop-off-partners/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Delete an emergency drop-off partner' })
+  async deleteDropOffPartner(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.forward('delete', `/admin/drop-off-partners/${id}`, null, null, user);
+  }
 }
+

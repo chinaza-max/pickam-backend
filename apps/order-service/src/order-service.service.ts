@@ -98,6 +98,8 @@ export class OrderServiceService {
         destinationAddress: dto.destinationAddress,
         pickupZoneId,
         destinationZoneId,
+        pickupLandmarkId: dto.pickupLandmarkId || null,
+        destinationLandmarkId: dto.destinationLandmarkId || null,
         amount: price,
         status: OrderStatus.PENDING,
         paymentStatus: PaymentStatus.PAID,
@@ -125,6 +127,30 @@ export class OrderServiceService {
       `Your delivery order ${orderId} has been successfully created. We are assigning a rider.`,
     );
 
+    // 7. Notify online riders about the new available delivery
+    try {
+      const onlineRiders = await this.prisma.riderProfile.findMany({
+        where: { status: 'ONLINE' },
+        select: { userId: true },
+      });
+      for (const rider of onlineRiders) {
+        this.sendNotification(
+          rider.userId,
+          'New Delivery Available 🛵',
+          `Order #${orderId} is available for pickup at ${dto.pickupAddress} (₦${Number(price).toLocaleString()}). Tap to accept.`,
+          'ORDER_AVAILABLE',
+          {
+            orderId,
+            pickupAddress: dto.pickupAddress,
+            destinationAddress: dto.destinationAddress,
+            amount: String(price),
+          },
+        );
+      }
+    } catch (err: any) {
+      console.warn('Failed to notify online riders:', err.message);
+    }
+
     return order;
   }
 
@@ -149,24 +175,40 @@ export class OrderServiceService {
       },
     });
 
+    const riderInfo = await this.getRiderVehicleInfo(riderId);
+
     await this.prisma.orderEvent.create({
       data: {
         orderId,
         status: OrderStatus.ASSIGNED,
-        description: `Rider ${riderId} assigned to your order.`,
+        description: `Courier ${riderInfo.name} (${riderInfo.vehicleLabel}) assigned to your order.`,
       },
     });
 
-    // Notify Customer and Rider
+    // Notify Customer and Rider with rich details
     this.sendNotification(
       order.customerId,
-      'Rider Assigned',
-      `Rider has accepted your delivery order ${orderId}.`,
+      `${riderInfo.icon} Courier Assigned — ${riderInfo.name}`,
+      `${riderInfo.name} (${riderInfo.vehicleLabel}) has been assigned to delivery #${orderId} and is on the way to pickup.`,
+      'ORDER_ASSIGNED',
+      {
+        orderId,
+        status: 'ASSIGNED',
+        riderId,
+        riderName: riderInfo.name,
+        vehicleType: riderInfo.vehicleType,
+        vehiclePlate: riderInfo.vehiclePlate || '',
+      },
     );
     this.sendNotification(
       riderId,
-      'New Delivery Assigned',
-      `You have been assigned to order ${orderId}. Please proceed to pickup location.`,
+      'New Delivery Assigned 🛵',
+      `You have been assigned to order #${orderId}. Please proceed to pickup location.`,
+      'ORDER_ASSIGNED',
+      {
+        orderId,
+        status: 'ASSIGNED',
+      },
     );
 
     return updated;
@@ -186,7 +228,10 @@ export class OrderServiceService {
         throw new NotFoundException('Order not found');
       }
 
-      if (order.status !== OrderStatus.PENDING) {
+      const isPending = order.status === OrderStatus.PENDING;
+      const isAssignedToThisRider = order.status === OrderStatus.ASSIGNED && order.riderId === riderId;
+
+      if (!isPending && !isAssignedToThisRider) {
         throw new BadRequestException(
           'This order is no longer available. It may have been accepted by another rider.',
         );
@@ -206,31 +251,101 @@ export class OrderServiceService {
         },
       });
 
+      const riderInfo = await this.getRiderVehicleInfo(riderId);
+
       await tx.orderEvent.create({
         data: {
           orderId,
           status: OrderStatus.ASSIGNED,
-          description: `Rider ${riderId} accepted this order.`,
+          description: `${riderInfo.name} (${riderInfo.vehicleLabel}) accepted this order.`,
         },
       });
 
       // Notify Customer
       this.sendNotification(
         order.customerId,
-        'Rider Accepted',
-        `A rider has accepted your delivery order ${orderId} and is heading to the pickup location.`,
+        `${riderInfo.icon} Rider Assigned — ${riderInfo.name}`,
+        `${riderInfo.name} (${riderInfo.vehicleLabel}) accepted your delivery #${orderId} and is heading to the pickup location.`,
+        'ORDER_ASSIGNED',
+        {
+          orderId,
+          status: 'ASSIGNED',
+          riderId,
+          riderName: riderInfo.name,
+          vehicleType: riderInfo.vehicleType,
+          vehiclePlate: riderInfo.vehiclePlate || '',
+        },
       );
 
       // Notify Rider
       this.sendNotification(
         riderId,
-        'Order Accepted',
-        `You have accepted order ${orderId}. Navigate to the pickup location.`,
+        'Order Accepted 👍',
+        `You have accepted order #${orderId}. Navigate to the pickup location.`,
+        'ORDER_ACCEPTED',
+        {
+          orderId,
+          status: 'ASSIGNED',
+        },
       );
 
       return {
         ...updated,
         amount: Number(updated.amount),
+      };
+    });
+  }
+
+  // ==========================================
+  // RIDER REJECT ASSIGNED ORDER
+  // ==========================================
+  async rejectOrder(orderId: string, riderId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      if (order.riderId !== riderId) {
+        throw new BadRequestException('You are not assigned to this order');
+      }
+
+      const rejectableStatuses = [OrderStatus.ASSIGNED, OrderStatus.PENDING, 'ARRIVED_PICKUP'];
+      if (!rejectableStatuses.includes(order.status as any)) {
+        throw new BadRequestException('Cannot reject an order that has already been picked up or completed');
+      }
+
+      // Unassign the rider and return to PENDING
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          riderId: null,
+          status: OrderStatus.PENDING,
+        },
+      });
+
+      await tx.orderEvent.create({
+        data: {
+          orderId,
+          status: OrderStatus.PENDING,
+          description: `Assigned rider declined delivery. Re-routing to available riders.`,
+        },
+      });
+
+      // Notify Customer
+      this.sendNotification(
+        order.customerId,
+        'Finding Another Rider',
+        `Your delivery order ${orderId} is being re-routed to another rider.`,
+      );
+
+      return {
+        ...updated,
+        amount: Number(updated.amount),
+        message: 'Order assignment rejected successfully. The order has been returned to the pool.',
       };
     });
   }
@@ -318,11 +433,27 @@ export class OrderServiceService {
       data: { status },
     });
 
+    const riderInfo = await this.getRiderVehicleInfo(order.riderId || userId);
+    let title = `${riderInfo.icon} Order Update`;
     let description = `Order status updated to: ${status}`;
-    if (status === OrderStatus.PICKED_UP) {
-      description = 'Rider has picked up your package and is on the way.';
+    let notifType = 'ORDER_UPDATE';
+
+    if (status === ('ARRIVED_PICKUP' as any)) {
+      title = `${riderInfo.icon} Courier Arrived at Pickup`;
+      description = `${riderInfo.name} has arrived at the pickup location with their ${riderInfo.vehicleLabel}.`;
+      notifType = 'ORDER_ARRIVED_PICKUP';
+    } else if (status === OrderStatus.PICKED_UP) {
+      title = `📦💨 Package Picked Up!`;
+      description = `${riderInfo.name} has picked up your package using their ${riderInfo.vehicleLabel} and is in transit to your destination!`;
+      notifType = 'ORDER_PICKED_UP';
+    } else if (status === ('ARRIVED_DESTINATION' as any)) {
+      title = `🏁 Courier Arrived at Destination`;
+      description = `${riderInfo.name} has arrived at the drop-off destination with your package (${riderInfo.vehicleLabel}).`;
+      notifType = 'ORDER_ARRIVED_DESTINATION';
     } else if (status === OrderStatus.DELIVERED) {
-      description = 'Your package has been successfully delivered.';
+      title = `🎉 Package Delivered!`;
+      description = `Your package has been delivered by ${riderInfo.name} (${riderInfo.vehicleLabel}). Please inspect and confirm receipt in your app.`;
+      notifType = 'ORDER_DELIVERED';
     }
 
     await this.prisma.orderEvent.create({
@@ -333,8 +464,42 @@ export class OrderServiceService {
       },
     });
 
-    // Notify Customer
-    this.sendNotification(order.customerId, 'Order Update', description);
+    // Notify Customer with rich vehicle info and push payload
+    this.sendNotification(order.customerId, title, description, notifType, {
+      orderId,
+      status: String(status),
+      riderId: String(order.riderId || userId || ''),
+      riderName: riderInfo.name,
+      vehicleType: riderInfo.vehicleType,
+      vehiclePlate: riderInfo.vehiclePlate || '',
+    });
+
+    // Notify Rider of delivery status progression
+    const activeRiderId = order.riderId || (role === UserRole.RIDER ? userId : null);
+    if (activeRiderId) {
+      let riderTitle = '';
+      let riderMsg = '';
+      if (status === ('ARRIVED_PICKUP' as any)) {
+        riderTitle = 'Arrived at Pickup 📍';
+        riderMsg = `You marked arrival at pickup for order #${orderId}. Collect package from sender.`;
+      } else if (status === OrderStatus.PICKED_UP) {
+        riderTitle = 'Package Picked Up 📦💨';
+        riderMsg = `Order #${orderId} is in transit. Head safely to destination.`;
+      } else if (status === ('ARRIVED_DESTINATION' as any)) {
+        riderTitle = 'Arrived at Destination 🏁';
+        riderMsg = `You arrived at the destination for order #${orderId}. Deliver package to recipient.`;
+      } else if (status === OrderStatus.DELIVERED) {
+        riderTitle = 'Delivery Completed 🎉';
+        riderMsg = `Order #${orderId} marked as delivered! Customer will confirm receipt shortly.`;
+      }
+
+      if (riderTitle) {
+        this.sendNotification(activeRiderId, riderTitle, riderMsg, notifType, {
+          orderId,
+          status: String(status),
+        });
+      }
+    }
 
     return updated;
   }
@@ -409,6 +574,112 @@ export class OrderServiceService {
         `Assigned order ${orderId} has been cancelled by the customer.`,
       );
     }
+
+    return updated;
+  }
+
+  async confirmReceipt(orderId: string, userId: string, role: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (role === UserRole.CUSTOMER && order.customerId !== userId) {
+      throw new BadRequestException('You do not own this order');
+    }
+
+    if (order.status === OrderStatus.PENDING || order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException(
+        `Cannot confirm receipt for order in ${order.status} state. A courier must be assigned and deliver your package first.`,
+      );
+    }
+
+    if (order.fundsReleased && order.isReceived) {
+      return {
+        success: true,
+        message: 'Order receipt already confirmed and funds released.',
+        order,
+      };
+    }
+
+    let riderPayoutAmount = 0;
+    let payoutType = 'PERCENTAGE';
+    let commissionRate = 80;
+
+    if (order.riderId) {
+      try {
+        const riderProfile = await this.prisma.riderProfile.findUnique({
+          where: { userId: order.riderId },
+        });
+
+        if (riderProfile) {
+          payoutType = (riderProfile.payoutType || 'PERCENTAGE').toUpperCase();
+          commissionRate = riderProfile.commissionRate ? Number(riderProfile.commissionRate) : 80;
+        }
+
+        if (payoutType === 'PERCENTAGE') {
+          riderPayoutAmount = Math.round((Number(order.amount) * commissionRate) / 100);
+
+          // Credit rider wallet via Wallet Service
+          const walletServiceUrl = process.env.WALLET_SERVICE_URL || 'http://localhost:3002';
+          await firstValueFrom(
+            this.httpService.post(`${walletServiceUrl}/wallets/credit`, {
+              userId: order.riderId,
+              amount: riderPayoutAmount,
+              reference: `earnings_${order.id}`,
+              description: `Earnings (${commissionRate}% payout) for delivery #${order.id}`,
+            }),
+          );
+
+          this.sendNotification(
+            order.riderId,
+            'Earnings Released! 💰',
+            `Customer confirmed receipt for order ${order.id}! ₦${riderPayoutAmount} (${commissionRate}%) has been added to your wallet.`,
+          );
+        } else {
+          // MONTHLY SALARY plan: Deliveries are tracked without per-order wallet credit
+          riderPayoutAmount = 0;
+          this.sendNotification(
+            order.riderId,
+            'Delivery Confirmed! ✓',
+            `Customer confirmed receipt for order ${order.id}. Recorded toward your monthly delivery performance.`,
+          );
+        }
+      } catch (err) {
+        console.error(`Failed to process rider payout for order ${orderId}:`, err.message);
+      }
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.DELIVERED,
+        isReceived: true,
+        receivedAt: new Date(),
+        fundsReleased: true,
+        riderPayout: riderPayoutAmount,
+      },
+    });
+
+    await this.prisma.orderEvent.create({
+      data: {
+        orderId,
+        status: OrderStatus.DELIVERED,
+        description:
+          payoutType === 'MONTHLY'
+            ? 'Customer confirmed package received. Recorded under courier monthly salary plan.'
+            : `Customer confirmed package received. ₦${riderPayoutAmount} released to courier wallet.`,
+      },
+    });
+
+    this.sendNotification(
+      order.customerId,
+      'Delivery Completed',
+      `You confirmed receipt of order ${order.id}. Thank you for using PickAm!`,
+    );
 
     return updated;
   }
@@ -498,8 +769,42 @@ export class OrderServiceService {
       orderBy: { createdAt: 'asc' },
     });
 
+    let emergencyDropOffPartners: any[] = [];
+    let destinationLandmark: any = null;
+    let pickupLandmark: any = null;
+
+    if (order.destinationLandmarkId) {
+      try {
+        destinationLandmark = await this.prisma.landmark.findUnique({
+          where: { id: order.destinationLandmarkId },
+        });
+        emergencyDropOffPartners = await this.prisma.dropOffPartner.findMany({
+          where: {
+            landmarkId: order.destinationLandmarkId,
+            status: 'ACTIVE',
+          },
+          orderBy: { name: 'asc' },
+        });
+      } catch (e) {
+        console.warn('Could not fetch destination landmark dropoff partners', e);
+      }
+    }
+
+    if (order.pickupLandmarkId) {
+      try {
+        pickupLandmark = await this.prisma.landmark.findUnique({
+          where: { id: order.pickupLandmarkId },
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+
     return {
       ...enrichedOrder,
+      pickupLandmark,
+      destinationLandmark,
+      emergencyDropOffPartners,
       events,
     };
   }
@@ -546,6 +851,16 @@ export class OrderServiceService {
       ]),
     );
 
+    const riderProfiles = riderIds.length > 0
+      ? await this.prisma.riderProfile.findMany({
+          where: { userId: { in: riderIds } },
+        })
+      : [];
+
+    const riderProfileMap = new Map(
+      riderProfiles.map((rp) => [rp.userId, rp]),
+    );
+
     return orders.map((o) => {
       const riderObj = o.riderId ? userMap.get(o.riderId) || null : null;
       const customerObj = o.customerId ? userMap.get(o.customerId) || null : null;
@@ -556,11 +871,26 @@ export class OrderServiceService {
         ? [customerObj.firstName, customerObj.lastName].filter(Boolean).join(" ") || customerObj.email
         : null;
 
+      const rp = o.riderId ? riderProfileMap.get(o.riderId) : null;
+      const vehicleType = rp?.vehicleType || 'BIKE';
+      const vehiclePlate = rp?.vehiclePlate || null;
+
+      const enrichedRider = riderObj
+        ? {
+            ...riderObj,
+            vehicleType,
+            vehiclePlate,
+            bike: `${vehicleType} (${vehiclePlate || 'Verified'})`,
+          }
+        : null;
+
       return {
         ...o,
         amount: Number(o.amount),
+        vehicleType,
+        vehiclePlate,
         customer: customerObj,
-        rider: riderObj,
+        rider: enrichedRider,
         riderName: o.riderName || riderName,
         riderPhone: o.riderPhone || riderObj?.phoneNumber || null,
         customerName: o.customerName || customerName,
@@ -570,8 +900,75 @@ export class OrderServiceService {
   }
 
 
+  /**
+   * Helper to fetch rich rider and vehicle metadata (type, plate, label, icon)
+   */
+  private async getRiderVehicleInfo(riderId?: string | null) {
+    if (!riderId) {
+      return {
+        name: 'Your courier',
+        vehicleType: 'BIKE',
+        vehiclePlate: null,
+        vehicleLabel: 'Motorcycle / Bike',
+        icon: '🏍️',
+      };
+    }
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: riderId },
+        include: { profile: true },
+      });
+      const riderProfile = await this.prisma.riderProfile.findUnique({
+        where: { userId: riderId },
+      });
+
+      const name = user?.profile?.firstName
+        ? `${user.profile.firstName} ${user.profile.lastName || ''}`.trim()
+        : 'Your courier';
+      const vehicleType = (riderProfile?.vehicleType || 'BIKE').toUpperCase();
+      const vehiclePlate = riderProfile?.vehiclePlate || null;
+
+      let vehicleLabel = 'Motorcycle / Bike';
+      let icon = '🏍️';
+      if (vehicleType === 'VAN') {
+        vehicleLabel = 'Delivery Van';
+        icon = '🚐';
+      } else if (vehicleType === 'CAR') {
+        vehicleLabel = 'Express Car';
+        icon = '🚗';
+      } else if (vehicleType === 'TRUCK') {
+        vehicleLabel = 'Haulage Truck';
+        icon = '🚛';
+      }
+
+      const plateText = vehiclePlate ? ` (Plate: ${vehiclePlate})` : '';
+
+      return {
+        name,
+        vehicleType,
+        vehiclePlate,
+        vehicleLabel: `${vehicleLabel}${plateText}`,
+        icon,
+      };
+    } catch {
+      return {
+        name: 'Your courier',
+        vehicleType: 'BIKE',
+        vehiclePlate: null,
+        vehicleLabel: 'Motorcycle / Bike',
+        icon: '🏍️',
+      };
+    }
+  }
+
   // Trigger Notification Service
-  private async sendNotification(userId: string, title: string, message: string) {
+  private async sendNotification(
+    userId: string,
+    title: string,
+    message: string,
+    type: string = 'ORDER_UPDATE',
+    data?: Record<string, string>,
+  ) {
     try {
       const notificationServiceUrl =
         process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3004';
@@ -580,10 +977,11 @@ export class OrderServiceService {
           userId,
           title,
           message,
-          type: 'PUSH',
+          type,
+          data: data || {},
         }),
       );
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`Failed to dispatch notification: ${err.message}`);
     }
   }

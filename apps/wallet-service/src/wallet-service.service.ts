@@ -326,6 +326,52 @@ export class WalletService {
     return result;
   }
 
+  async creditUnits(userId: string, amount: number, reference: string, description?: string) {
+    let wallet = await this.prisma.wallet.findUnique({
+      where: { userId },
+    });
+
+    if (!wallet) {
+      wallet = await this.prisma.wallet.create({
+        data: {
+          userId,
+          balance: 0,
+        },
+      });
+    }
+
+    const checkTx = await this.prisma.transaction.findUnique({
+      where: { reference },
+    });
+    if (checkTx) {
+      return { success: true, message: 'Credit already processed (idempotent)', transaction: checkTx };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedWallet = await tx.wallet.update({
+        where: { userId },
+        data: {
+          balance: { increment: amount },
+        },
+      });
+
+      const transaction = await tx.transaction.create({
+        data: {
+          walletId: updatedWallet.id,
+          amount,
+          type: TransactionType.CREDIT,
+          status: TransactionStatus.SUCCESS,
+          reference,
+          description: description || `Credit release: ${reference}`,
+        },
+      });
+
+      return { balance: Number(updatedWallet.balance), transaction };
+    });
+
+    return result;
+  }
+
   async getTransactions(userId: string, query: PaginationQueryDto) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;

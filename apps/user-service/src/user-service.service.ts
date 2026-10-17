@@ -160,8 +160,12 @@ export class UserServiceService implements OnModuleInit {
   }
 
   async login(dto: LoginDto) {
+    const cleanEmail = dto.email.trim();
     const user = await this.prisma.user.findFirst({
-      where: { email: dto.email, deletedAt: null },
+      where: {
+        email: { equals: cleanEmail, mode: 'insensitive' },
+        deletedAt: null,
+      },
       include: { profile: true },
     });
 
@@ -238,6 +242,8 @@ export class UserServiceService implements OnModuleInit {
       id: user.id,
       email: user.email,
       role: user.role,
+      isVerified: user.isVerified,
+      status: user.status,
       profile: user.profile,
       riderProfile,
     };
@@ -376,10 +382,48 @@ export class UserServiceService implements OnModuleInit {
         accountStatus: user.status || "ACTIVE",
         rating: 5.0,
         deliveries,
+        payoutType: (rp.payoutType || "PERCENTAGE").toUpperCase(),
+        commissionRate: rp.commissionRate !== null && rp.commissionRate !== undefined ? Number(rp.commissionRate) : 80,
+        monthlySalary: rp.monthlySalary !== null && rp.monthlySalary !== undefined ? Number(rp.monthlySalary) : null,
       });
     }
 
     return buildPaginatedResponse(result, totalProfiles, page, limit);
+  }
+
+  async updateRiderPayoutSettings(
+    userId: string,
+    dto: { payoutType: string; commissionRate?: number; monthlySalary?: number },
+  ) {
+    const rider = await this.prisma.riderProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!rider) {
+      throw new NotFoundException('Rider profile not found');
+    }
+
+    const payoutType = (dto.payoutType || 'PERCENTAGE').toUpperCase();
+    if (!['PERCENTAGE', 'MONTHLY'].includes(payoutType)) {
+      throw new BadRequestException('Payout type must be PERCENTAGE or MONTHLY');
+    }
+
+    const updated = await this.prisma.riderProfile.update({
+      where: { userId },
+      data: {
+        payoutType,
+        ...(dto.commissionRate !== undefined && { commissionRate: dto.commissionRate }),
+        ...(dto.monthlySalary !== undefined && { monthlySalary: dto.monthlySalary }),
+      },
+    });
+
+    return {
+      userId,
+      payoutType: updated.payoutType,
+      commissionRate: updated.commissionRate ? Number(updated.commissionRate) : 80,
+      monthlySalary: updated.monthlySalary ? Number(updated.monthlySalary) : null,
+      updatedAt: updated.updatedAt,
+    };
   }
 
   async listUsers(query: PaginationQueryDto) {
@@ -602,7 +646,27 @@ export class UserServiceService implements OnModuleInit {
       const balanceRes = await firstValueFrom(
         this.httpService.get(`${walletServiceUrl}/wallets/users/${userId}/balance`),
       );
-      return balanceRes.data.data;
+
+      let transactions: any[] = [];
+      try {
+        const txRes = await firstValueFrom(
+          this.httpService.get(`${walletServiceUrl}/wallets/transactions`, {
+            params: { userId, limit: 50 },
+          }),
+        );
+        transactions = Array.isArray(txRes.data?.data)
+          ? txRes.data.data
+          : Array.isArray(txRes.data?.data?.transactions)
+          ? txRes.data.data.transactions
+          : [];
+      } catch (txErr) {
+        // Continue without transactions if call fails
+      }
+
+      return {
+        ...(balanceRes.data?.data || {}),
+        transactions,
+      };
     } catch (err) {
       throw new BadRequestException(`Could not retrieve user wallet: ${err.message}`);
     }
@@ -677,15 +741,24 @@ export class UserServiceService implements OnModuleInit {
             providerId: hashedProviderId,
           },
         });
+        // Social authentication confirms email ownership
+        if (!existingUser.isVerified) {
+          await this.prisma.user.update({
+            where: { id: existingUser.id },
+            data: { isVerified: true },
+          });
+          existingUser.isVerified = true;
+        }
         user = existingUser;
       } else {
-        // 3. Register a new user with no password
+        // 3. Register a new user with no password (verified by social provider)
         user = await this.prisma.$transaction(async (tx) => {
           const newUser = await tx.user.create({
             data: {
               email: dto.email,
               password: null,
               role: dto.role,
+              isVerified: true,
               profile: {
                 create: {
                   firstName: dto.firstName || '',
@@ -902,17 +975,27 @@ export class UserServiceService implements OnModuleInit {
   }
 
   async sendOtp(dto: SendOtpDto): Promise<{ message: string }> {
-    const { email, purpose = 'EMAIL_VERIFICATION' } = dto;
+    const cleanEmail = dto.email.trim();
+    const purpose = dto.purpose || 'EMAIL_VERIFICATION';
 
-    // Check if the user exists (optional check — only for EMAIL_VERIFICATION)
-    const user = await this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+    // Check if the user exists
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: { equals: cleanEmail, mode: 'insensitive' },
+        deletedAt: null,
+      },
+    });
     if (!user) {
       throw new NotFoundException('No account found with this email address');
     }
 
     // Invalidate any previous unused OTPs for this email/purpose
     await this.prisma.otpRecord.updateMany({
-      where: { email, purpose, used: false },
+      where: {
+        email: { equals: cleanEmail, mode: 'insensitive' },
+        purpose,
+        used: false,
+      },
       data: { used: true },
     });
 
@@ -922,22 +1005,23 @@ export class UserServiceService implements OnModuleInit {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await this.prisma.otpRecord.create({
-      data: { email, otpHash, purpose, expiresAt },
+      data: { email: user.email, otpHash, purpose, expiresAt },
     });
 
     // Send email
-    await this.emailService.sendOtpEmail(email, otp, purpose);
+    await this.emailService.sendOtpEmail(user.email, otp, purpose);
 
-    return { message: `OTP sent to ${email}. It expires in 10 minutes.` };
+    return { message: `OTP sent to ${user.email}. It expires in 10 minutes.` };
   }
 
-  async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string; verified: boolean }> {
-    const { email, otp, purpose = 'EMAIL_VERIFICATION' } = dto;
+  async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string; verified: boolean; token?: string | null; user?: any }> {
+    const cleanEmail = dto.email.trim();
+    const { otp, purpose = 'EMAIL_VERIFICATION' } = dto;
 
     // Fetch the most recent unused, non-expired OTP for this email/purpose
     const record = await this.prisma.otpRecord.findFirst({
       where: {
-        email,
+        email: { equals: cleanEmail, mode: 'insensitive' },
         purpose,
         used: false,
         expiresAt: { gt: new Date() },
@@ -960,15 +1044,44 @@ export class UserServiceService implements OnModuleInit {
       data: { used: true },
     });
 
-    // If purpose is EMAIL_VERIFICATION, mark user as verified
+    let token: string | null = null;
+    let userPayload: any = null;
+
+    // If purpose is EMAIL_VERIFICATION, mark user as verified and generate auth token
     if (purpose === 'EMAIL_VERIFICATION') {
-      await this.prisma.user.updateMany({
-        where: { email, deletedAt: null },
-        data: { isVerified: true },
+      const user = await this.prisma.user.findFirst({
+        where: {
+          email: { equals: cleanEmail, mode: 'insensitive' },
+          deletedAt: null,
+        },
+        include: { profile: true },
       });
+
+      if (user) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isVerified: true, lastLoginAt: new Date() },
+        });
+
+        token = await this.generateToken(user.id, user.email, user.role);
+        userPayload = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          isVerified: true,
+          firstName: user.profile?.firstName,
+          lastName: user.profile?.lastName,
+          phoneNumber: user.profile?.phoneNumber,
+        };
+      }
     }
 
-    return { message: 'OTP verified successfully.', verified: true };
+    return {
+      message: 'OTP verified successfully.',
+      verified: true,
+      token,
+      user: userPayload,
+    };
   }
 
 

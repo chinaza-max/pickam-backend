@@ -40,6 +40,7 @@ model Profile {
   lastName    String?
   phoneNumber String?
   avatarUrl   String?
+  fcmToken    String?  // Firebase Cloud Messaging token for push notifications
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -47,14 +48,18 @@ model Profile {
 }
 
 model RiderProfile {
-  id           String   @id @default(uuid())
-  userId       String   @unique
-  vehicleType  String
-  vehiclePlate String
-  licenseNo    String
-  status       String   // "ONLINE", "OFFLINE", "DELIVERING"
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  vehicleType    String
+  vehiclePlate   String
+  licenseNo      String
+  status         String    // "ONLINE", "OFFLINE", "DELIVERING"
+  payoutType     String    @default("PERCENTAGE") // "PERCENTAGE" or "MONTHLY"
+  commissionRate Decimal?  @default(80.00) @db.Decimal(5, 2)
+  monthlySalary  Decimal?  @db.Decimal(10, 2)
+  fcmToken       String?   // Firebase Cloud Messaging token for push notifications
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@schema("user_schema")
 }
@@ -126,6 +131,8 @@ model Order {
   destinationAddress String
   pickupZoneId       String
   destinationZoneId  String
+  pickupLandmarkId   String?
+  destinationLandmarkId String?
   amount             Decimal   @db.Decimal(10, 2)
   status             String    // "PENDING", "ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED"
   paymentStatus      String    // "PENDING", "PAID", "REFUNDED"
@@ -135,6 +142,10 @@ model Order {
   deliveryNotes      String?
   expiresAt          DateTime?
   deliveryProofUrl   String?
+  isReceived         Boolean   @default(false)
+  receivedAt         DateTime?
+  fundsReleased      Boolean   @default(false)
+  riderPayout        Decimal?  @db.Decimal(10, 2)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -199,12 +210,28 @@ model Zone {
 }
 
 model Landmark {
-  id        String   @id @default(uuid())
-  name      String
-  zoneId    String
-  zone      Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String           @id @default(uuid())
+  name            String
+  zoneId          String
+  zone            Zone             @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  dropOffPartners DropOffPartner[]
+
+  @@schema("admin_schema")
+}
+
+model DropOffPartner {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String
+  address     String
+  landmarkId  String
+  landmark    Landmark @relation(fields: [landmarkId], references: [id], onDelete: Cascade)
+  status      String   @default("ACTIVE") // "ACTIVE", "INACTIVE"
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@schema("admin_schema")
 }

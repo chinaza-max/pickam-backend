@@ -115,6 +115,21 @@ export class WalletServiceController {
   }
 
   @Public()
+  @Post('credit')
+  @ApiOperation({ summary: 'Internal: credit units to a user wallet' })
+  async creditUnits(
+    @Body('userId') userId: string,
+    @Body('amount') amount: number,
+    @Body('reference') reference: string,
+    @Body('description') description?: string,
+  ) {
+    if (!userId || !amount || !reference) {
+      throw new BadRequestException('userId, amount, and reference are required');
+    }
+    return this.walletService.creditUnits(userId, amount, reference, description);
+  }
+
+  @Public()
   @Post('webhook/safehaven')
   @ApiOperation({ summary: 'SafeHaven transaction webhook' })
   async handleWebhook(

@@ -26,3 +26,7 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase service account keys
+firebase-service-account.json
+*-adminsdk-*.json

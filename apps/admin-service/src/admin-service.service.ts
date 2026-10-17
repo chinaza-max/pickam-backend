@@ -3,11 +3,12 @@ import { PrismaService } from 'libs/prisma';
 import { State as CountryState } from 'country-state-city';
 import axios from 'axios';
 import {
-
   CreateStateDto,
   CreateZoneDto,
   CreateLandmarkDto,
   CreatePricingMatrixDto,
+  CreateDropOffPartnerDto,
+  UpdateDropOffPartnerDto,
 } from './dto/admin.dto';
 import { PaginationQueryDto, buildPaginatedResponse } from 'libs/common';
 import { UserRole, OrderStatus } from 'libs/constants';
@@ -893,6 +894,90 @@ export class AdminServiceService {
         updatedAt: lm.updatedAt,
       })),
     };
+  }
+
+  // ==========================================
+  // DROP-OFF PARTNER MANAGEMENT
+  // ==========================================
+
+  async createDropOffPartner(dto: CreateDropOffPartnerDto) {
+    const landmark = await this.prisma.landmark.findUnique({ where: { id: dto.landmarkId } });
+    if (!landmark) throw new NotFoundException('Landmark not found');
+
+    const partner = await this.prisma.dropOffPartner.create({
+      data: {
+        name: dto.name,
+        phone: dto.phone,
+        address: dto.address,
+        landmarkId: dto.landmarkId,
+        notes: dto.notes || null,
+        status: 'ACTIVE',
+      },
+      include: { landmark: { select: { id: true, name: true, zoneId: true } } },
+    });
+
+    return partner;
+  }
+
+  async listDropOffPartners(query: PaginationQueryDto & { landmarkId?: string; status?: string }) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.landmarkId) where.landmarkId = query.landmarkId;
+    if (query.status) where.status = query.status.toUpperCase();
+
+    const [partners, total] = await Promise.all([
+      this.prisma.dropOffPartner.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { landmark: { select: { id: true, name: true, zoneId: true } } },
+      }),
+      this.prisma.dropOffPartner.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(partners, total, page, limit);
+  }
+
+  async getDropOffPartner(id: string) {
+    const partner = await this.prisma.dropOffPartner.findUnique({
+      where: { id },
+      include: { landmark: { select: { id: true, name: true, zoneId: true } } },
+    });
+    if (!partner) throw new NotFoundException('Drop-off partner not found');
+    return partner;
+  }
+
+  async updateDropOffPartner(id: string, dto: UpdateDropOffPartnerDto) {
+    await this.getDropOffPartner(id);
+    return this.prisma.dropOffPartner.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.status !== undefined && { status: dto.status.toUpperCase() }),
+        ...(dto.notes !== undefined && { notes: dto.notes }),
+      },
+      include: { landmark: { select: { id: true, name: true, zoneId: true } } },
+    });
+  }
+
+  async deleteDropOffPartner(id: string) {
+    await this.getDropOffPartner(id);
+    await this.prisma.dropOffPartner.delete({ where: { id } });
+    return { id, deleted: true };
+  }
+
+  async getDropOffPartnersByLandmark(landmarkId: string) {
+    const partners = await this.prisma.dropOffPartner.findMany({
+      where: { landmarkId, status: 'ACTIVE' },
+      orderBy: { name: 'asc' },
+    });
+    return partners;
   }
 }
 

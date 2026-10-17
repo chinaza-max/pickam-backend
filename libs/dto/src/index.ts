@@ -432,4 +432,58 @@ export class FundWalletDto {
   delaySeconds?: number;
 }
 
+export class CreateDropOffPartnerDto {
+  @ApiProperty({ example: 'Mama Ngozi Store' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: '+2348011223344' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: 'Shop 12, Opposite University Main Gate' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'landmark-uuid-1234', description: 'Landmark ID where this partner is stationed' })
+  @IsString()
+  @IsNotEmpty()
+  landmarkId: string;
+
+  @ApiProperty({ example: 'Holds packages between 8 AM and 7 PM', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class UpdateDropOffPartnerDto {
+  @ApiProperty({ example: 'Mama Ngozi Store', required: false })
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @ApiProperty({ example: '+2348011223344', required: false })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiProperty({ example: 'Shop 12, Opposite University Main Gate', required: false })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiProperty({ example: 'ACTIVE', required: false })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ example: 'Holds packages between 8 AM and 7 PM', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
 
