@@ -587,11 +587,17 @@ export class OrderServiceService {
       throw new NotFoundException('Order not found');
     }
 
-    if (role === UserRole.CUSTOMER && order.customerId !== userId) {
+    const isAdmin = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+
+    if (!isAdmin && role === UserRole.CUSTOMER && order.customerId !== userId) {
       throw new BadRequestException('You do not own this order');
     }
 
-    if (order.status === OrderStatus.PENDING || order.status === OrderStatus.CANCELLED) {
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Cannot confirm receipt for a cancelled order');
+    }
+
+    if (!isAdmin && order.status === OrderStatus.PENDING) {
       throw new BadRequestException(
         `Cannot confirm receipt for order in ${order.status} state. A courier must be assigned and deliver your package first.`,
       );
@@ -668,10 +674,15 @@ export class OrderServiceService {
       data: {
         orderId,
         status: OrderStatus.DELIVERED,
-        description:
-          payoutType === 'MONTHLY'
-            ? 'Customer confirmed package received. Recorded under courier monthly salary plan.'
-            : `Customer confirmed package received. ₦${riderPayoutAmount} released to courier wallet.`,
+        description: isAdmin
+          ? (order.riderId
+              ? (payoutType === 'MONTHLY'
+                  ? 'Admin confirmed package received on behalf of customer. Recorded under courier monthly salary plan.'
+                  : `Admin confirmed package received on behalf of customer. ₦${riderPayoutAmount} released to courier wallet.`)
+              : 'Admin confirmed package received on behalf of customer.')
+          : (payoutType === 'MONTHLY'
+              ? 'Customer confirmed package received. Recorded under courier monthly salary plan.'
+              : `Customer confirmed package received. ₦${riderPayoutAmount} released to courier wallet.`),
       },
     });
 

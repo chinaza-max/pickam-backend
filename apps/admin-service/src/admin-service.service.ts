@@ -571,13 +571,17 @@ export class AdminServiceService {
     since.setDate(since.getDate() - 13); // inclusive: today − 13 = 14 days
     since.setHours(0, 0, 0, 0);
 
-    // Pull all delivered orders in the window
+    // Pull all delivered orders in the window (matched by completion date or creation date)
     const orders = await this.prisma.order.findMany({
       where: {
         status: OrderStatus.DELIVERED,
-        createdAt: { gte: since },
+        OR: [
+          { receivedAt: { gte: since } },
+          { updatedAt: { gte: since } },
+          { createdAt: { gte: since } },
+        ],
       },
-      select: { amount: true, createdAt: true },
+      select: { amount: true, receivedAt: true, updatedAt: true, createdAt: true },
     });
 
     // Build a map keyed by YYYY-MM-DD
@@ -590,7 +594,8 @@ export class AdminServiceService {
     }
 
     for (const order of orders) {
-      const key = order.createdAt.toISOString().slice(0, 10);
+      const completionDate = order.receivedAt || order.updatedAt || order.createdAt;
+      const key = completionDate.toISOString().slice(0, 10);
       if (dailyMap.has(key)) {
         dailyMap.set(key, dailyMap.get(key)! + Number(order.amount));
       }
@@ -601,7 +606,14 @@ export class AdminServiceService {
       revenue,
     }));
 
-    const totalRevenue = days.reduce((sum, d) => sum + d.revenue, 0);
+    const periodRevenue = days.reduce((sum, d) => sum + d.revenue, 0);
+
+    const allTimeAgg = await this.prisma.order.aggregate({
+      _sum: { amount: true },
+      where: { status: OrderStatus.DELIVERED },
+    });
+    const allTimeRevenue = allTimeAgg._sum.amount ? Number(allTimeAgg._sum.amount) : periodRevenue;
+
     const peakDay = days.reduce(
       (max, d) => (d.revenue > max.revenue ? d : max),
       days[0],
@@ -609,7 +621,9 @@ export class AdminServiceService {
 
     return {
       period: { from: since.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) },
-      totalRevenue,
+      totalRevenue: allTimeRevenue,
+      periodRevenue,
+      allTimeRevenue,
       peakDay,
       days,
     };
