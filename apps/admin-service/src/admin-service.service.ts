@@ -538,14 +538,27 @@ export class AdminServiceService {
       : 0;
 
     return {
+      totalUsers: totalCustomers,
+      totalRiders,
+      revenue: totalRevenueUnits,
+      totalRevenue: totalRevenueUnits,
       activeZones: zonesCount,
       activeLandmarks: landmarksCount,
-      totalRegisteredUsers: totalCustomers,
-      totalRegisteredRiders: totalRiders,
       activeDeliveries,
       completedDeliveries,
       cancelledDeliveries,
+      totalRegisteredUsers: totalCustomers,
+      totalRegisteredRiders: totalRiders,
       totalRevenueUnits,
+      users: { total: totalCustomers, customers: totalCustomers, riders: totalRiders },
+      riders: { total: totalRiders },
+      orders: {
+        active: activeDeliveries,
+        completed: completedDeliveries,
+        cancelled: cancelledDeliveries,
+      },
+      zones: { active: zonesCount, total: zonesCount },
+      landmarks: { active: landmarksCount, total: landmarksCount },
     };
   }
 
