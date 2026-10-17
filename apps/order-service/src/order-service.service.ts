@@ -67,7 +67,7 @@ export class OrderServiceService {
     }
 
     // 3. Create the order record and deduct wallet balance
-    const orderId = `ord_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = await this.generateShortTrackingId();
 
     try {
       const walletServiceUrl =
@@ -984,5 +984,26 @@ export class OrderServiceService {
     } catch (err: any) {
       console.warn(`Failed to dispatch notification: ${err.message}`);
     }
+  }
+
+  // Generate short, clean, human-friendly tracking code (e.g. PK-849201 or PK-7B9X2M)
+  private async generateShortTrackingId(): Promise<string> {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    for (let attempt = 0; attempt < 10; attempt++) {
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const candidateId = `PK-${code}`;
+      const existing = await this.prisma.order.findUnique({
+        where: { id: candidateId },
+        select: { id: true },
+      });
+      if (!existing) {
+        return candidateId;
+      }
+    }
+    // Fallback if needed
+    return `PK-${Math.floor(100000 + Math.random() * 900000)}`;
   }
 }
