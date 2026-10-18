@@ -256,7 +256,7 @@ export class OrderServiceService {
       await tx.orderEvent.create({
         data: {
           orderId,
-          status: OrderStatus.ASSIGNED,
+          status: 'ACCEPTED',
           description: `${riderInfo.name} (${riderInfo.vehicleLabel}) accepted this order.`,
         },
       });
@@ -673,7 +673,7 @@ export class OrderServiceService {
     await this.prisma.orderEvent.create({
       data: {
         orderId,
-        status: OrderStatus.DELIVERED,
+        status: 'CONFIRMED',
         description: isAdmin
           ? (order.riderId
               ? (payoutType === 'MONTHLY'
@@ -775,9 +775,41 @@ export class OrderServiceService {
 
     const [enrichedOrder] = await this.enrichOrdersWithUsers([order]);
 
-    const events = await this.prisma.orderEvent.findMany({
+    const rawEvents = await this.prisma.orderEvent.findMany({
       where: { orderId },
       orderBy: { createdAt: 'asc' },
+    });
+
+    const events = rawEvents.map((e) => {
+      let label = e.status;
+      const desc = e.description || '';
+      const descLower = desc.toLowerCase();
+      if (e.status === OrderStatus.PENDING) {
+        label = 'Order Placed';
+      } else if (e.status === OrderStatus.ASSIGNED) {
+        label = descLower.includes('accepted') ? 'Courier Accepted' : 'Courier Assigned';
+      } else if (e.status === 'ACCEPTED') {
+        label = 'Courier Accepted';
+      } else if (e.status === 'ARRIVED_PICKUP') {
+        label = 'Arrived at Pickup';
+      } else if (e.status === OrderStatus.PICKED_UP) {
+        label = 'Package Picked Up';
+      } else if (e.status === 'ARRIVED_DESTINATION') {
+        label = 'Arrived at Destination';
+      } else if (e.status === OrderStatus.DELIVERED) {
+        label = (descLower.includes('confirmed') || descLower.includes('received'))
+          ? 'Receipt Confirmed'
+          : 'Delivered by Courier';
+      } else if (e.status === 'CONFIRMED' || e.status === 'RECEIVED') {
+        label = 'Receipt Confirmed';
+      } else if (e.status === OrderStatus.CANCELLED) {
+        label = 'Order Cancelled';
+      }
+      return {
+        ...e,
+        label,
+        note: e.description,
+      };
     });
 
     let emergencyDropOffPartners: any[] = [];
